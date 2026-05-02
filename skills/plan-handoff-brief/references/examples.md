@@ -1,4 +1,4 @@
-# Plan Audit Brief Examples
+# Plan Handoff Brief Examples
 
 ## Example Input
 
@@ -19,7 +19,7 @@ Proposed behavior:
 
 ## Example Output Snippet
 
-# Plan Audit Brief
+# Plan Handoff Brief
 
 ## 0. Audit Dashboard
 

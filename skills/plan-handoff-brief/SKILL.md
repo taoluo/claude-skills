@@ -1,15 +1,38 @@
 ---
-name: plan-audit-brief
-description: Translate an implementation plan into a compact, audit-ready brief for a human auditor — D0–D6 decision trace, audit checkpoints, execution anchors, and optional Mermaid diagrams (secondary). Use after planning and before agent handoff.
+name: plan-handoff-brief
+description: Compile an existing implementation plan into a self-contained handoff brief for human audit and agent execution: problem context, assumptions, scope, hard constraints, D0–D6 decision trace, diagrams, evidence, and stop conditions. Use after planning and before handing work to an implementation agent.
 ---
 
-# Plan Audit Brief
+# Plan Handoff Brief
+
+## What this is NOT
+
+This skill is **not** a plan validator. It does not approve, reject, or
+audit the plan itself; it does not emit findings/severity tags. It does
+not generate forward-looking ADRs or design specs. It does not check
+post-implementation drift.
+
+What it does: **compile** an existing implementation plan into a
+self-contained handoff artifact (problem context, assumptions, scope,
+hard constraints, D0–D6 decision trace, evidence, stop conditions, and
+optional secondary diagrams) so a human can audit the plan and an
+implementation agent can execute it without drifting.
+
+If you want findings/severity, use a validator skill (e.g.
+`b-mendoza/agent-skills@validate-implementation-plan`). If you want
+forward-looking ADR/design-spec generation, use a preflight skill (e.g.
+`terrylica/cc-skills@implement-plan-preflight`). If you want
+post-implementation drift checking, use `xiaolai/vmark@plan-audit`. This
+skill sits between those: it translates an existing plan into the
+artifact the auditor and the agent both consume.
+
+---
 
 You are a plan translation layer.
 
 Your job is to translate a raw implementation plan into a **self-contained pre-ship audit artifact** for a human auditor: a single Markdown file that lets the human verify whether the plan reflects their intent, has sound high-level design, and is ready to be handed off to an implementation agent.
 
-**Single reader: the human auditor.** The implementation agent does NOT read this artifact — the agent will read the original plan file directly. plan-audit-brief exists *upstream* of the agent: the human reviews the plan via plan-audit-brief, fixes issues in the plan, then ships the plan (not plan-audit-brief) to the agent.
+**Single reader: the human auditor.** The implementation agent does NOT read this artifact — the agent will read the original plan file directly. plan-handoff-brief exists *upstream* of the agent: the human reviews the plan via plan-handoff-brief, fixes issues in the plan, then ships the plan (not plan-handoff-brief) to the agent.
 
 You do not review, approve, reject, or audit the plan yourself.
 You do not say whether the plan is safe or unsafe.
@@ -28,7 +51,7 @@ The output must be readable by the human auditor without opening the raw plan. D
 
 If important context is missing from the raw plan, write `unknown` and surface it in `## 7 Audit Checkpoints` so the human knows to fill the gap in the plan *before* shipping it to the agent.
 
-Important framing for stop conditions and evidence: these sections describe what the *plan* tells the agent to do — they are **mirrors of plan content**, not new instructions to the agent. The human auditor uses them to verify the plan's stop / evidence story is adequate. If the plan does not define stop conditions, that is itself an audit finding, not something plan-audit-brief fabricates.
+Important framing for stop conditions and evidence: these sections describe what the *plan* tells the agent to do — they are **mirrors of plan content**, not new instructions to the agent. The human auditor uses them to verify the plan's stop / evidence story is adequate. If the plan does not define stop conditions, that is itself an audit finding, not something plan-handoff-brief fabricates.
 
 Diagrams are secondary. Use diagrams only when they make the decision system easier for the human to audit. Each diagram must answer one specific audit question (see Mermaid Rules).
 
@@ -37,20 +60,20 @@ Diagrams are secondary. Use diagrams only when they make the decision system eas
 The user should only need:
 
 ```text
-/plan-audit-brief @PLAN.md
+/plan-handoff-brief @PLAN.md
 ```
 
 Also support:
-- `/plan-audit-brief current plan`
-- `/plan-audit-brief current diff`
-- `/plan-audit-brief`
+- `/plan-handoff-brief current plan`
+- `/plan-handoff-brief current diff`
+- `/plan-handoff-brief`
 
 ## Output File
 
 Write the result to:
 
 ```text
-docs/plan-audit-brief.md
+docs/plan-handoff-brief.md
 ```
 
 If writing files is not available, print the full Markdown result in the chat.
@@ -112,7 +135,7 @@ Extract in this order (do **not** start from diagrams):
     - Subsystems with independent lifecycle and ≥3 meaningful states (router admission, cache slot, port pool, scheduler queue, worker, connection) → produce a `stateDiagram-v2` in Appendix F. Promote to Critical Views only when lifecycle correctness is one of the top audit risks.
     - Cross-cutting role/path dimensions (`rank × role`, `phase × component`, `transport × path`) → produce a role matrix in Appendix F, or visible section if it is central.
     - Rejected alternatives / "已决边界" / design tradeoffs scattered through the plan → consolidate into `## 3.1 Out of Scope` (rejection rationale) and `## 3.4 Strategy Comparison` (alternatives table). Do not duplicate across appendices.
-    - **Alternative-axis numbering in source plan** (e.g. `F1..F12` features, `Component A..G`, `Workstream 1..N`, `Module M1..Mk`) different from the D0–D6 decision axis → produce a **navigation crosswalk table in `Appendix F`** so an auditor familiar with the source plan can jump from `F4` (their mental handle) to the right `D` rows in plan-audit-brief. Format: `| Source-axis ID | Primary D | Secondary D | Notes |`. Without this crosswalk, auditors waste time guessing where their `Fn` lives in the audit doc.
+    - **Alternative-axis numbering in source plan** (e.g. `F1..F12` features, `Component A..G`, `Workstream 1..N`, `Module M1..Mk`) different from the D0–D6 decision axis → produce a **navigation crosswalk table in `Appendix F`** so an auditor familiar with the source plan can jump from `F4` (their mental handle) to the right `D` rows in plan-handoff-brief. Format: `| Source-axis ID | Primary D | Secondary D | Notes |`. Without this crosswalk, auditors waste time guessing where their `Fn` lives in the audit doc.
 
     When a trigger fires, include the corresponding pattern. When it does not fire, omit the pattern and do not invent placeholder content. Do not invent a fake topology for a software-only plan or fabricate constraints to fill `## 3.2`.
 4. Mark inferred decisions with `(inferred)`.
@@ -120,7 +143,7 @@ Extract in this order (do **not** start from diagrams):
 6. Mark low-level implementation details with no clear parent decision as `unanchored`.
 7. Generate a compact visible audit surface.
 8. Put full traceability in visible appendix sections.
-9. Write the result to `docs/plan-audit-brief.md`.
+9. Write the result to `docs/plan-handoff-brief.md`.
 9a. **Citation-grid integrity check (mandatory before mechanical validation).** Before running the Mermaid validator, audit the citation grid for orphan IDs and trace/visible drift. Programmatic check:
 
     ```bash
@@ -128,7 +151,7 @@ Extract in this order (do **not** start from diagrams):
     # Drift here means visible region under-represents a decision the trace claims exists.
     python3 -c '
     import re, sys
-    t = open("docs/plan-audit-brief.md").read()
+    t = open("docs/plan-handoff-brief.md").read()
     # Pull all D-IDs from the Appendix A table.
     appA_start = t.find("## Appendix A")
     appB_start = t.find("## Appendix B")
@@ -151,13 +174,13 @@ Extract in this order (do **not** start from diagrams):
 
     Apply the same eyeball check for `Cn`, `An`, `En`, `Mn`: every ID defined in its canonical table should appear in at least one cross-reference. If any ID is orphaned, either add a cross-reference or remove it from its canonical table — never leave it dangling.
 
-10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `docs/plan-audit-brief.md` compiles. Eyeballing is not a substitute for the parser. Run:
+10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `docs/plan-handoff-brief.md` compiles. Eyeballing is not a substitute for the parser. Run:
 
     ```bash
-    rm -rf tmp/plan-audit-brief-mermaid-check && mkdir -p tmp/plan-audit-brief-mermaid-check
-    node -e 'const fs=require("fs"); const t=fs.readFileSync("docs/plan-audit-brief.md","utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/plan-audit-brief-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
+    rm -rf tmp/plan-handoff-brief-mermaid-check && mkdir -p tmp/plan-handoff-brief-mermaid-check
+    node -e 'const fs=require("fs"); const t=fs.readFileSync("docs/plan-handoff-brief.md","utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/plan-handoff-brief-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
     fail=0
-    for f in tmp/plan-audit-brief-mermaid-check/*.mmd; do
+    for f in tmp/plan-handoff-brief-mermaid-check/*.mmd; do
       if npx -y @mermaid-js/mermaid-cli -i "$f" -o "${f%.mmd}.svg" -b transparent >/dev/null 2>&1; then
         echo "OK  $f"
       else
@@ -168,7 +191,7 @@ Extract in this order (do **not** start from diagrams):
     [ $fail -eq 0 ] || echo "MERMAID VALIDATION FAILED"
     ```
 
-    If any block reports `FAIL`, edit `docs/plan-audit-brief.md`, re-run the loop, and repeat until every block reports `OK`. Common parser errors traced back to syntax in `## Mermaid Rules`. The `tmp/plan-audit-brief-mermaid-check/` directory is scratch; leave it (or delete it) — do not commit it. If `npx`/`node` is unavailable, state that the mechanical check could not run and ask the user how to proceed instead of skipping the step silently.
+    If any block reports `FAIL`, edit `docs/plan-handoff-brief.md`, re-run the loop, and repeat until every block reports `OK`. Common parser errors traced back to syntax in `## Mermaid Rules`. The `tmp/plan-handoff-brief-mermaid-check/` directory is scratch; leave it (or delete it) — do not commit it. If `npx`/`node` is unavailable, state that the mechanical check could not run and ask the user how to proceed instead of skipping the step silently.
 
 ## Output Layout
 
@@ -218,7 +241,7 @@ The visible surface is the audit surface, not the full trace. Its size is conten
 Do not enforce fixed line counts, node counts, edge counts, diagram counts, or checkbox counts. A large or highly coupled plan may need a larger visible surface.
 
 Compact-first rules:
-- Do not add preamble between `# Plan Audit Brief` and `## 0. Audit Dashboard`, except optional `Feature:` and `Source:` lines.
+- Do not add preamble between `# Plan Handoff Brief` and `## 0. Audit Dashboard`, except optional `Feature:` and `Source:` lines.
 - Audit Dashboard: use the requested dashboard fields, each as a single line when possible.
 - Decision DAG: include the decision nodes needed to preserve the plan's real hierarchy.
 - Decision table: include the rows needed to audit top-down decision traceability.
@@ -239,7 +262,7 @@ Placement rules:
 Use exactly this document structure. Sections marked `<!-- conditional -->` appear only when the corresponding signal is present (see `### Conditional Collapse Rules` above). Empty conditional sections must be removed entirely, not left as placeholder headings.
 
 ```markdown
-# Plan Audit Brief
+# Plan Handoff Brief
 
 Feature: **...**
 Source: [...]
@@ -546,7 +569,7 @@ If the plan defines no stop conditions at all, write `The plan defines no stop c
 Generate the human audit checkboxes the auditor ticks **before shipping the plan to the implementation agent**. Always last in the visible region. Two lenses:
 
 1. **Intent alignment** — does the plan reflect what the human actually wants?
-2. **Shippability** — is the plan complete enough that an agent reading it (without plan-audit-brief) will not have to guess?
+2. **Shippability** — is the plan complete enough that an agent reading it (without plan-handoff-brief) will not have to guess?
 
 Use this style:
 
@@ -558,9 +581,9 @@ Use this style:
 - [ ] **Shippability**: D2/D3/D4/D5 layers trace to parents in the plan; no orphan implementation details that an agent might invent freely.
 - [ ] **Shippability**: the plan defines stop conditions for the agent (`## 6.2` mirrors them); gaps surfaced here.
 - [ ] **Shippability**: the plan defines evidence / acceptance criteria (`## 6.1` mirrors them); gaps surfaced here.
-- [ ] **Shippability**: must-not-change behaviors (Dashboard) are explicit in the plan, not just in plan-audit-brief.
+- [ ] **Shippability**: must-not-change behaviors (Dashboard) are explicit in the plan, not just in plan-handoff-brief.
 
-Adapt the wording to the actual plan. When `## 3.2 Hard Constraints` exists, include checkpoint(s) of the form `Cn is encoded in the plan as an enforced assertion`. When `## 6` exists, include a checkpoint of the form `Evidence E1–En is achievable before the agent declares done`. When the plan has gaps that plan-audit-brief exposed (`unknown` markers), each one becomes an `Intent` or `Shippability` checkpoint demanding the human update the *plan*, not plan-audit-brief.
+Adapt the wording to the actual plan. When `## 3.2 Hard Constraints` exists, include checkpoint(s) of the form `Cn is encoded in the plan as an enforced assertion`. When `## 6` exists, include a checkpoint of the form `Evidence E1–En is achievable before the agent declares done`. When the plan has gaps that plan-handoff-brief exposed (`unknown` markers), each one becomes an `Intent` or `Shippability` checkpoint demanding the human update the *plan*, not plan-handoff-brief.
 
 Do not say `safe` or `unsafe`. Do not approve or reject.
 
@@ -641,7 +664,7 @@ Include:
 
 Stop Conditions are mandatory.
 
-**Stop-condition voice (must match `## 6.2`).** Use *mirror* language consistently — `## 6.2` and Appendix E both describe what the *plan* tells the agent, not what plan-audit-brief tells the agent. Use the prefix `The plan instructs the agent to stop and ask if:` (or `The plan defines no stop conditions for ...`). Do NOT use `Stop and ask the user if:` (legacy template language) — it reads as a direct instruction to the agent and contradicts the single-reader rule.
+**Stop-condition voice (must match `## 6.2`).** Use *mirror* language consistently — `## 6.2` and Appendix E both describe what the *plan* tells the agent, not what plan-handoff-brief tells the agent. Use the prefix `The plan instructs the agent to stop and ask if:` (or `The plan defines no stop conditions for ...`). Do NOT use `Stop and ask the user if:` (legacy template language) — it reads as a direct instruction to the agent and contradicts the single-reader rule.
 
 Use this style:
 

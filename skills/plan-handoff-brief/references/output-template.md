@@ -1,6 +1,6 @@
-# Plan Audit Brief Output Template
+# Plan Handoff Brief Output Template
 
-# Plan Audit Brief
+# Plan Handoff Brief
 
 Feature: **...**
 Source: [...]
