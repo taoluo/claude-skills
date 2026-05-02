@@ -211,3 +211,19 @@ faster and the rejection of "wrong-fit" users cleaner.
   body says single-reader, the description must too — otherwise the
   rendered output reads awkwardly under either reader's hat. Ship
   description and body changes together, never just one.
+- **2026-05-02**: Outcome-vs-mechanism layering. Acceptance criteria
+  hidden in evidence section after decisions inverted the derivation
+  order; reviewer surfaced this. Lesson: split acceptance into Tier 1
+  (outcome, derivable from `Goal+An+Cn+Mn` only — NEVER cites `Dn` /
+  `En` / risks / open questions; **tightened to an allow-list, not a
+  blocklist**, because future ID classes would otherwise leak in
+  silently) and Tier 2 (mechanism, lives in evidence, cites `Dn`).
+  Tier 1 must precede decisions structurally so each decision must
+  cite ≥1 AC it serves; this forces design to derive from commitments,
+  not the other way around. Single canonical AC table with `Milestone`
+  column matches §3.3 / §3.4 pattern; numbering stays flat
+  (`AC1..ACn`) for regex simplicity even when grouped by milestone.
+  Citation grid now closes a loop: `AC → D → E → Done(Mn)`. Step 9a
+  hard-fails (exit 1) on AC orphans, AC not covered by any E, `Dn`
+  with empty `AC served`, or forbidden tokens in §3.5 `Derives from`.
+  Same severity as the existing D-orphan check.

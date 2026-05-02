@@ -120,9 +120,10 @@ Extract in this order (do **not** start from diagrams):
    b. **Core assumptions** — implicit / explicit premises the plan depends on. Number `A1, A2, ...`.
    c. **Scope boundary** — in / out of scope, with rationale where the plan distinguishes "rejected alternative" from "out of scope".
    d. **Hard constraints** — fail-fast asserts, invariants, `must` / `必须`. Number `C1, C2, ...` (`FF1, FF2, ...` if the plan distinguishes fail-fast specifically).
-   e. **Decision hierarchy D0–D6** — derived from a–d, not invented in isolation.
+   d.5. **Acceptance criteria — outcome-level (Tier 1)**. Number `AC1, AC2, ...`. Derivable from a–d alone (Goal / Assumptions / Scope / Constraints / Milestones); **must NOT reference any decision** (`Dn`). One row per outcome the plan promises a human at delivery time. If `## 3.3 Milestones` exists, group AC by milestone — milestones are the natural acceptance unit (a milestone is a sign-off boundary, a decision is not). Each AC is the answer to "what does the user actually receive when this is done?", written in user-visible terms, not designer-visible terms. The strict outcome-vs-mechanism boundary is what gives later decisions something to derive *from*; with no AC, decisions self-justify and over-engineering surfaces only at audit time.
+   e. **Decision hierarchy D0–D6** — derived from a–d.5, not invented in isolation. Each `Dn` must cite at least one `AC` it serves. A `Dn` that cites no `AC` is either an undeclared goal (write the missing AC) or over-engineering (cut the decision).
    f. **Critical views** — only diagrams that answer a specific audit question.
-   g. **Evidence required + stop conditions** — what to verify before "done"; what should halt the implementation.
+   g. **Evidence required + stop conditions** — what to verify before "done"; what should halt the implementation. Each evidence row may bind to `D` (mechanism-level: "this decision is implemented") and/or `AC` (outcome-level: "this acceptance criterion is met"); both bindings together close the trace `AC → D → E`.
 3a. **Scan for optional audit-pattern triggers (pattern activation pre-pass).**
 
     Run this scan *before* committing to D0-D6, because some triggers are surface markers that do not appear in the high-level decision graph (milestone tags, fail-fast asserts, wire-schema fields, etc.). Missing them at this stage means missing them entirely.
@@ -175,7 +176,101 @@ Extract in this order (do **not** start from diagrams):
     '
     ```
 
-    Apply the same eyeball check for `Cn`, `An`, `En`, `Mn`: every ID defined in its canonical table should appear in at least one cross-reference. If any ID is orphaned, either add a cross-reference or remove it from its canonical table — never leave it dangling.
+    Apply the same eyeball check for `Cn`, `An`, `En`, `Mn`, `ACn`: every ID defined in its canonical table should appear in at least one cross-reference. If any ID is orphaned, either add a cross-reference or remove it from its canonical table — never leave it dangling.
+
+    **AC integrity (HARD FAIL — extends the orphan check above)**: the AC layer (§3.5 ↔ §5 `AC served` ↔ §6.1 `AC verified`) has additional bidirectional rules. Any violation hard-fails Step 9a (exit 1; do not advance to Step 10).
+
+    ```bash
+    python3 -c '
+    import re, sys
+    t = open("docs/plan-handoff-brief.md").read()
+    def slice_section(start_marker, end_marker):
+        s = t.find(start_marker)
+        e = t.find(end_marker, s + 1) if s >= 0 else -1
+        return t[s:e] if s >= 0 and e >= 0 else ""
+
+    s35 = slice_section("### 3.5", "### 4")          # also handles "## 4"
+    if not s35:
+        s35 = slice_section("## 3.5", "## 4")
+    s5  = slice_section("## 5. Decision Map", "## 6.")
+    s61 = slice_section("#### 6.1", "#### 6.2")
+    if not s61:
+        s61 = slice_section("## 6.1", "## 6.2")
+
+    AC_TOKEN = r"\bAC[1-9][0-9]*\b"
+
+    # 1. extract canonical ACn from §3.5 ID column (first column of pipe-table rows)
+    ac_defined = set()
+    for line in s35.splitlines():
+        m = re.match(r"\|\s*(AC[1-9][0-9]*)\s*\|", line)
+        if m: ac_defined.add(m.group(1))
+
+    # 2. §3.5 Derives-from allow-list: only Goal | A\d+ | C\d+ | M\S+
+    forbidden_in_derives = []
+    for line in s35.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        # Derives-from is the 3rd data column: row = | ID | Outcome | Derives | Verified | Milestone |
+        if len(cells) >= 5 and re.match(r"AC[1-9][0-9]*", cells[1]):
+            derives = cells[3]
+            tokens = re.findall(r"`?([A-Za-z][A-Za-z0-9_.]*)`?", derives)
+            for tok in tokens:
+                if tok in {"Goal"}: continue
+                if re.match(r"^A[1-9][0-9]*$", tok): continue
+                if re.match(r"^C[1-9][0-9]*$", tok): continue
+                if re.match(r"^M\S+$", tok): continue
+                forbidden_in_derives.append((cells[1], tok))
+
+    # 3. §5 AC served: every Dn row must have ≥1 AC token; tokens ⊆ ac_defined
+    d_without_ac = []
+    ac_cited_by_d = set()
+    for line in s5.splitlines():
+        m = re.match(r"\|\s*(D[0-9](?:\.[A-Za-z])?)\s*\|", line)
+        if not m: continue
+        cells = [c.strip() for c in line.split("|")]
+        # Decision table: | Decision | Chosen | Depends | AC served | Audit |
+        if len(cells) < 6: continue
+        ac_served = cells[4]
+        toks = set(re.findall(AC_TOKEN, ac_served))
+        if not toks:
+            d_without_ac.append(m.group(1))
+        ac_cited_by_d |= toks
+
+    # 4. §6.1 AC verified aggregate: every ac_defined must appear in ≥1 row
+    ac_covered_by_e = set()
+    for line in s61.splitlines():
+        m = re.match(r"\|\s*(E[1-9][0-9]*)\s*\|", line)
+        if not m: continue
+        cells = [c.strip() for c in line.split("|")]
+        # Evidence table: | ID | Binds to | AC verified | Evidence | Before Done? |
+        if len(cells) < 6: continue
+        ac_covered_by_e |= set(re.findall(AC_TOKEN, cells[3]))
+
+    # Report + fail
+    fail = False
+    orphans_d = ac_defined - ac_cited_by_d
+    if orphans_d:
+        print(f"FAIL: AC not cited by any Dn (orphan promises): {sorted(orphans_d)}"); fail = True
+    orphans_e = ac_defined - ac_covered_by_e
+    if orphans_e:
+        print(f"FAIL: AC not covered by any En (unverifiable promises): {sorted(orphans_e)}"); fail = True
+    if d_without_ac:
+        print(f"FAIL: Dn rows with empty AC served (orphan decisions): {sorted(d_without_ac)}"); fail = True
+    if forbidden_in_derives:
+        print(f"FAIL: §3.5 Derives-from has forbidden tokens (allow-list = Goal | An | Cn | Mn): {forbidden_in_derives}"); fail = True
+    sys.exit(1 if fail else 0)
+    print("AC integrity OK")
+    '
+    ```
+
+    The mutation table below is the integrity-check spec — verify against a 1-AC / 1-D / 1-E worked example to sanity-check before committing changes that touch AC layout:
+
+    | Mutation | Expected exit |
+    |---|---|
+    | Remove the only `AC1` from §5 `AC served` (D1 has no AC) | 1 |
+    | Remove the only `AC1` from §6.1 `AC verified` (AC uncovered) | 1 |
+    | Change §3.5 `Derives from` to `Goal, D1` (forbidden token) | 1 |
+    | Change `AC1` ID in §3.5 to `AC 1` (format inconsistent across tables) | 1 |
+    | All four tables consistent, no orphans, no forbidden tokens | 0 |
 
 10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `docs/plan-handoff-brief.md` compiles. Eyeballing is not a substitute for the parser. Run:
 
@@ -292,6 +387,10 @@ Source: [...]
 ### 3.4 Strategy Comparison
 <!-- conditional: one decision has >=3 named alternatives -->
 
+### 3.5 Acceptance Criteria
+<!-- always include; outcome-level (Tier 1); group by milestone if 3.3 exists; -->
+<!-- "Derives from" column may only cite §0–§3 IDs (Goal, A, C, M); never cite Dn here -->
+
 ## 4. Critical Views
 
 ### 4.1 Architecture Integration View
@@ -337,7 +436,9 @@ Source: [...]
 ...
 ```
 
-The visible region order — `0 Dashboard → 1 Context → 2 Assumptions → 3 Scope & Constraints → 4 Critical Views → 5 Decision Map → 6 Evidence & Stop Conditions → 7 Audit Checkpoints` — is fixed: triage first, background next, contract before design, design before evidence, evidence before checklist. Do not reorder.
+The visible region order — `0 Dashboard → 1 Context → 2 Assumptions → 3 Scope & Constraints (3.1 Out of Scope → 3.2 Hard Constraints → 3.3 Milestones → 3.4 Strategy Comparison → 3.5 Acceptance Criteria) → 4 Critical Views → 5 Decision Map → 6 Evidence & Stop Conditions → 7 Audit Checkpoints` — is fixed: triage first, background next, **contract (including outcome-level acceptance) before design**, design before evidence, evidence before checklist. Do not reorder.
+
+Why §3.5 sits inside the contract (§3) and before §5 Decisions: acceptance criteria are outcome-level promises to the human, derivable from Goal+Assumptions+Constraints+Milestones alone. They MUST be expressible without any reference to design decisions — that is the test that separates "what we owe the user" from "how we propose to build it". Decisions in §5 then derive **from** §3.5 (each `Dn` cites the `ACn` it serves), which closes the loop `AC → D → E` and exposes orphan decisions (a `Dn` with no `AC` is either over-engineering or a hidden goal).
 
 Why Dashboard precedes Context: Dashboard is a 30-second triage view (`Goal / risk / files / focus`) that lets the reader decide whether the plan is relevant *before* committing to read the background. Context expands the Dashboard's `Goal` and `User audit focus` fields, it does not replace them.
 
@@ -434,6 +535,26 @@ Side-by-side matrix when one decision has ≥3 named alternatives shipped under 
 | Alternative | When chosen | Trade-off | Status |
 | ----------- | ----------- | --------- | ------ |
 
+#### 3.5 Acceptance Criteria (always include)
+
+**Outcome-level (Tier 1)** acceptance criteria the plan promises a human at delivery time. Numbered `AC1, AC2, ...` (flat — milestone membership lives in the `Milestone` column, not the ID). Single canonical table, sorted by milestone then ID.
+
+**Hard rule** (`Derives from` allow-list): the `Derives from` column may cite `Goal`, `An`, `Cn`, `Mn` — and **only** these. `Dn`, `En`, `Risk*`, `OpenQuestion*` are forbidden. AC are written before decisions exist; the moment an AC needs `Dn` to make sense, it is mechanism-level and belongs in `## 6.1 Evidence Required`, not here. Step 9a hard-fails on any forbidden token.
+
+**ID format guarantee**: `ACn` token must appear verbatim (regex `\bAC[1-9][0-9]*\b`) in three places — the `ID` column here, the `AC served` column in §5, the `AC verified` column in §6.1. Inconsistent spelling (`AC 1` vs `AC1`) is a Step 9a fail.
+
+| ID | Acceptance Criterion (outcome) | Derives from | Verified by | Milestone |
+| -- | ------------------------------ | ------------ | ----------- | --------- |
+| AC1 | MILES fullasync GRPO runs end-to-end under RLix scheduler (single pipeline) | `Goal`, `A1`, `M11.1` | `E3` | M11.1 |
+| AC2 | trajectory `weight_versions` consumable by `--max-weight-staleness` | `A8`, `C13` | `E5` | M11.1 |
+
+`Verified by` references `E` IDs in §6.1 and closes bidirectional traceability `AC ↔ E`.
+
+✅ outcome-level: user-visible at delivery (`AC1` above).
+❌ mechanism-level: implementation detail (`per-bucket payload doesn't carry weight_version` — belongs in §6.1, not here).
+
+If §3.3 is absent, use `Milestone = (none)` for all rows. If the plan is silent on user-visible outcomes, write `(plan does not declare outcome-level AC — see §7)` as a single placeholder row and surface as an `Intent` audit checkpoint demanding the human declare AC explicitly in the **plan** before shipping.
+
 ### 4. Critical Views
 
 Include the visible diagrams needed to audit the architecture and runtime decisions. Prefer two views for normal plans, but add or split views when the source plan needs it. Each diagram must answer one specific audit question; if you cannot state the question, the diagram does not belong here.
@@ -492,7 +613,7 @@ Include:
 1. One Mermaid decision DAG
 2. One compact decision table
 
-The decision DAG should show D0-D6 and the dependency edges between decisions, **and** trace decisions back to the Context (`Ctx`), Assumptions (`A1..An`), and Constraints (`C1..Cn`) that derive them. Decisions are not invented in isolation; the DAG must show what they are derived from.
+The decision DAG should show D0-D6 and the dependency edges between decisions, **and** trace decisions back to the Context (`Ctx`), Assumptions (`A1..An`), Constraints (`C1..Cn`), and **Acceptance Criteria (`AC1..ACn`)** that derive them. Decisions are not invented in isolation; the DAG must show what they are derived from. AC is a source node alongside `Ctx / A / C` — edges flow `AC --> Dn`, never the reverse (decisions serve commitments, they don't create them).
 
 For complex plans, make the DAG a decision hierarchy, not a line-by-line feature inventory.
 
@@ -503,6 +624,7 @@ flowchart TD
   Ctx[Problem Context]
   A[Assumptions A1..An]
   C[Constraints C1..Cn]
+  AC[Acceptance AC1..ACn]
 
   D0[D0 Goal]
   D1[D1 Architecture Integration]
@@ -515,6 +637,7 @@ flowchart TD
   Ctx --> D0
   A --> D1
   C --> D1
+  AC --> D1
   D0 --> D1
   D1 --> D2
   D1 --> D3
@@ -532,8 +655,10 @@ Use short labels. Avoid file paths, patch filenames, env vars, and implementatio
 
 The compact decision table should use:
 
-| Decision | Chosen | Depends On (Ctx / A / C / Dn) | Audit |
-| -------- | ------ | ----------------------------- | ----- |
+| Decision | Chosen | Depends On (Ctx / A / C / Dn) | AC served | Audit |
+| -------- | ------ | ----------------------------- | --------- | ----- |
+
+**Cite rule (HARD)**: every `Dn` row's `AC served` cell must contain ≥1 `ACn` token (verbatim, regex `\bAC[1-9][0-9]*\b`, comma-separated for multiple). A `Dn` with empty `AC served` is either undeclared-goal (add the missing AC to §3.5 first) or over-engineering (cut the decision). Step 9a hard-fails on any `Dn` with empty `AC served`.
 
 ### 6. Evidence & Stop Conditions (conditional)
 
@@ -545,13 +670,15 @@ This section is **decision-driven** — each row binds to a `D / A / C / M` ID a
 
 #### 6.1 Evidence Required (per plan)
 
-| ID | Binds to | Evidence the plan defines | Before Done? |
-| -- | -------- | ------------------------- | ------------ |
-| E1 | D1 | ... | yes |
-| E2 | C5 | ... | yes |
-| E3 | A2 | startup validation confirms assumption | yes |
+| ID | Binds to (D / A / C / M) | AC verified | Evidence the plan defines | Before Done? |
+| -- | ------------------------ | ----------- | ------------------------- | ------------ |
+| E1 | D1 | AC1 | ... | yes |
+| E2 | C5 |  | ... | yes |
+| E3 | A2 | AC2 | startup validation confirms assumption | yes |
 
-Number `E1, E2, E3, ...`. Reference the corresponding `D`, `A`, `C`, `M` IDs so the citation grid stays connected. If a decision / constraint / assumption has no corresponding evidence in the plan, write `(plan does not define)` and surface it in `## 7 Audit Checkpoints`.
+Number `E1, E2, E3, ...`. Reference the corresponding `D`, `A`, `C`, `M` IDs in `Binds to` so the citation grid stays connected. If a decision / constraint / assumption has no corresponding evidence in the plan, write `(plan does not define)` and surface it in `## 7 Audit Checkpoints`.
+
+**`AC verified` column**: comma-separated `ACn` tokens (verbatim, regex `\bAC[1-9][0-9]*\b`). Empty per row is fine — not every E binds to AC; some E rows verify mechanism-level decisions only (E2 above is mechanism-only). What is enforced is **aggregate coverage**: across all E rows in this table, every `ACn` declared in §3.5 must appear in ≥1 row's `AC verified` cell. Step 9a hard-fails if any AC is uncovered.
 
 #### 6.2 Stop Conditions (per plan)
 
@@ -580,7 +707,10 @@ Use this style:
 - [ ] **Intent**: scope boundary (3.1) excludes the right things; rejected alternatives are intentional.
 - [ ] **Intent**: D1 architecture insertion point matches the human's intended integration.
 - [ ] **Intent**: assumptions A1–An are ones the human is willing to bet on; `unverified` items are acceptable risks.
+- [ ] **Intent**: AC1–ACn (§3.5) cover what the human auditor expects to receive at each milestone — no missing user-visible outcomes.
 - [ ] **Shippability**: hard constraints C1–Cn are present in the plan with enforcement points (the agent will encounter them).
+- [ ] **Shippability**: every `Dn` in §5 cites ≥1 `AC` in §3.5 (no orphan decisions; a `Dn` with no `AC` is either over-engineering or a hidden goal).
+- [ ] **Shippability**: every `AC` in §3.5 has at least one `D` citing it AND at least one `E` verifying it (no orphan promises, no unverifiable promises).
 - [ ] **Shippability**: D2/D3/D4/D5 layers trace to parents in the plan; no orphan implementation details that an agent might invent freely.
 - [ ] **Shippability**: the plan defines stop conditions for the agent (`## 6.2` mirrors them); gaps surfaced here.
 - [ ] **Shippability**: the plan defines evidence / acceptance criteria (`## 6.1` mirrors them); gaps surfaced here.
@@ -666,6 +796,21 @@ Include:
 - Done Criteria
 
 Stop Conditions are mandatory.
+
+**Done Criteria — leading machine-checkable line per milestone (mandatory)**: each milestone subsection must START with a single line of the form `Done(Mn) = AC<i> ∧ AC<j> ∧ ...` referencing the AC IDs from §3.5 that constitute "done" for that milestone. Existing prose (gates, deliverables, signoff narrative) follows the line for context. Each `ACn` referenced must exist in §3.5 with `Milestone = Mn` (or be explicitly cross-cut between milestones with a comment). Step 9a does not yet enforce Done-line vs §3.5 cross-cite, but the format is fixed so future regen runs and downstream tooling have a stable shape to parse.
+
+Example:
+```markdown
+### Done(M11.1) = AC1 ∧ AC2 ∧ AC4 ∧ AC7
+
+<existing prose: M11.1 done = Gates 1, 2, 2.5, 3 pass + reload_process_groups stable + ... >
+
+### Done(M11.2) = AC3 ∧ AC8
+
+<prose: M11.2 done = Gate 4 happy path (c)+(d)+(e) pass + ... >
+```
+
+If the plan defines no milestones, use a single `### Done = AC1 ∧ AC2 ∧ ...` line at the top of Done Criteria. If §3.5 has only the placeholder row (`plan does not declare outcome-level AC`), write `### Done = (plan does not declare outcome-level AC — see §3.5 + §7)` and surface as an Intent audit checkpoint.
 
 **Stop-condition voice (must match `## 6.2`).** Use *mirror* language consistently — `## 6.2` and Appendix E both describe what the *plan* tells the agent, not what plan-handoff-brief tells the agent. Use the prefix `The plan instructs the agent to stop and ask if:` (or `The plan defines no stop conditions for ...`). Do NOT use `Stop and ask the user if:` (legacy template language) — it reads as a direct instruction to the agent and contradicts the single-reader rule.
 
