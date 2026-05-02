@@ -1,6 +1,6 @@
 ---
 name: plan-handoff-brief
-description: Compile an existing implementation plan into a self-contained handoff brief for human audit and agent execution: problem context, assumptions, scope, hard constraints, D0–D6 decision trace, diagrams, evidence, and stop conditions. Use after planning and before handing work to an implementation agent.
+description: Compile an existing implementation plan into a self-contained handoff brief for human audit and agent execution — problem context, assumptions, scope, hard constraints, D0-D6 decision trace, diagrams, evidence, and stop conditions. Use after planning and before handing work to an implementation agent.
 ---
 
 # Plan Handoff Brief
