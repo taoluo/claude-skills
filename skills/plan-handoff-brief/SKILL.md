@@ -1,6 +1,6 @@
 ---
 name: plan-handoff-brief
-description: Compile an existing implementation plan into a self-contained handoff brief for human audit and agent execution — problem context, assumptions, scope, hard constraints, D0-D6 decision trace, diagrams, evidence, and stop conditions. Use after planning and before handing work to an implementation agent.
+description: Compile an existing implementation plan into a self-contained pre-handoff audit brief for a human auditor — problem context, assumptions, scope, hard constraints, D0-D6 decision trace, diagrams, evidence, and stop conditions. The auditor verifies intent and design; only the source plan is shipped to the implementation agent. Use after planning and before handing the plan to an agent.
 ---
 
 # Plan Handoff Brief
@@ -13,10 +13,13 @@ not generate forward-looking ADRs or design specs. It does not check
 post-implementation drift.
 
 What it does: **compile** an existing implementation plan into a
-self-contained handoff artifact (problem context, assumptions, scope,
-hard constraints, D0–D6 decision trace, evidence, stop conditions, and
-optional secondary diagrams) so a human can audit the plan and an
-implementation agent can execute it without drifting.
+self-contained pre-handoff audit artifact (problem context, assumptions,
+scope, hard constraints, D0–D6 decision trace, evidence, stop conditions,
+and optional secondary diagrams). **Single reader: the human auditor.**
+The implementation agent does NOT read this artifact — the agent will
+read the original plan file directly. The brief exists *upstream* of
+the agent: the human reviews the plan via the brief, fixes issues in
+the plan, then ships the plan (not the brief) to the agent.
 
 If you want findings/severity, use a validator skill (e.g.
 `b-mendoza/agent-skills@validate-implementation-plan`). If you want
@@ -24,7 +27,7 @@ forward-looking ADR/design-spec generation, use a preflight skill (e.g.
 `terrylica/cc-skills@implement-plan-preflight`). If you want
 post-implementation drift checking, use `xiaolai/vmark@plan-audit`. This
 skill sits between those: it translates an existing plan into the
-artifact the auditor and the agent both consume.
+artifact the human uses to verify intent + design before agent handoff.
 
 ---
 

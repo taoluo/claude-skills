@@ -14,22 +14,26 @@ Code, then invoke with `/<name>` or have the model trigger it via the skill's
 `plan-handoff-brief` is **not** a plan validator. It does not approve or
 reject the plan, emit severity findings, or perform the audit itself.
 
-What it does: turn a plan into a self-contained handoff artifact —
-problem context, assumptions, scope and out-of-scope, hard constraints,
-D0–D6 decision trace, diagrams (secondary), evidence requirements,
-stop conditions — so a human can audit it and an implementation agent
-can execute it without drifting.
+What it does: turn a plan into a self-contained **pre-handoff audit
+artifact** — problem context, assumptions, scope and out-of-scope,
+hard constraints, D0–D6 decision trace, diagrams (secondary), evidence
+requirements, stop conditions. **Single reader: the human auditor.**
+The implementation agent does NOT read this artifact; the agent will
+read the original plan file directly. The brief exists upstream of the
+agent: the human verifies intent + design via the brief, fixes issues
+in the plan, then ships the plan (not the brief) to the agent.
 
 If you want findings/severity, use a validator skill (see "vs related
 skills" below). If you want forward-looking ADR/design-spec generation,
 use a preflight skill. This skill sits between those: it translates an
-existing plan into the artifact the auditor and the agent both consume.
+existing plan into the artifact the human uses to verify the plan
+before handing it to an agent.
 
 ## Skills
 
 | Skill | Description |
 |---|---|
-| [`plan-handoff-brief`](skills/plan-handoff-brief/SKILL.md) | Compile an existing implementation plan into a self-contained handoff brief for human audit and agent execution — problem context, assumptions, scope, hard constraints, D0–D6 decision trace, diagrams, evidence, and stop conditions. Use after planning, before handing work to an implementation agent. |
+| [`plan-handoff-brief`](skills/plan-handoff-brief/SKILL.md) | Compile an existing implementation plan into a self-contained **pre-handoff audit brief for a human auditor** — problem context, assumptions, scope, hard constraints, D0–D6 decision trace, diagrams, evidence, and stop conditions. Auditor verifies intent + design; only the source plan ships to the agent. Use after planning, before handing the plan to an agent. |
 
 ## vs related skills
 
@@ -39,7 +43,7 @@ existing plan into the artifact the auditor and the agent both consume.
 | ADR / design-spec generation from a feature idea | [`terrylica/cc-skills@implement-plan-preflight`](https://skills.sh/terrylica/cc-skills/implement-plan-preflight) | It creates forward-looking decision artifacts (MADR + spec) |
 | Post-implementation drift check (work vs plan) | [`xiaolai/vmark@plan-audit`](https://skills.sh/xiaolai/vmark/plan-audit) | It compares git history against plan after implementation |
 | Reframe an ambiguous high-stakes decision | [`shanezzzz/decision-clarity-skill@decision-clarity`](https://skills.sh/shanezzzz/decision-clarity-skill/decision-clarity) | It clarifies fuzzy decisions, not concrete plans |
-| **A handoff artifact before agent implementation** | **`plan-handoff-brief`** (this repo) | It translates an existing plan into a self-contained brief: context, assumptions, constraints, D0–D6 trace, evidence, stop conditions |
+| **A pre-handoff audit brief for the human** before the plan ships to an agent | **`plan-handoff-brief`** (this repo) | It translates an existing plan into a self-contained brief — context, assumptions, constraints, D0–D6 trace, evidence, stop conditions — that the human reads to verify intent + design (the agent reads the source plan, not this) |
 
 ## Repo layout
 
