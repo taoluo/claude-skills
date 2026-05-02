@@ -79,9 +79,8 @@ Tune the description for the **trigger words** a user would actually
 type:
 
 - ✅ "Compile **an existing implementation plan** into a self-contained
-  **handoff brief** for **human audit and agent execution** ... Use
-  **after planning** and **before handing work to an implementation
-  agent**."
+  **pre-handoff audit brief** for a **human auditor** ... Use
+  **after planning** and **before handing the plan to an agent**."
 - ❌ "Translates raw input into a structured artifact." (vague; no
   trigger anchors)
 
@@ -203,3 +202,12 @@ faster and the rejection of "wrong-fit" users cleaner.
   `:` with em-dash. Lesson: the colon/comma punctuation rule is
   invisible until the CLI rejects you. Always run `npx skills add
   <url> --list` after pushing.
+- **2026-05-02**: Description rolled back from "for human audit AND
+  agent execution" → "for human audit, before agent handoff." A
+  reviewer flagged that "agent execution" contradicted the SKILL.md
+  body's load-bearing single-reader rule ("the implementation agent
+  does NOT read this artifact"). Lesson: when expanding scope via
+  description text, audit whether the body voice still matches. If the
+  body says single-reader, the description must too — otherwise the
+  rendered output reads awkwardly under either reader's hat. Ship
+  description and body changes together, never just one.
