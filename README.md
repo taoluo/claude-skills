@@ -11,29 +11,40 @@ Code, then invoke with `/<name>` or have the model trigger it via the skill's
 
 ## What this is NOT
 
-`plan-handoff-brief` is **not** a plan validator. It does not approve or
-reject the plan, emit severity findings, or perform the audit itself.
+`tldr-plan` is **not** a plan validator. It does not approve or reject
+the plan, emit severity findings, or perform the audit itself. It is
+also not a one-shot summarizer that runs once and is done.
 
-What it does: turn a plan into a self-contained **pre-handoff audit
-artifact** — problem context, assumptions, scope and out-of-scope,
-hard constraints, D0–D6 decision trace, diagrams (secondary), evidence
-requirements, stop conditions. **Single reader: the human auditor.**
-The implementation agent does NOT read this artifact; the agent will
-read the original plan file directly. The brief exists upstream of the
-agent: the human verifies intent + design via the brief, fixes issues
-in the plan, then ships the plan (not the brief) to the agent.
+What it does: distill a raw implementation plan into a compact-first,
+self-contained **TLDR artifact** — problem context, assumptions, scope
+and out-of-scope, hard constraints, D0–D6 decision trace, acceptance
+criteria, evidence requirements, stop conditions, and optional diagrams.
+
+**Iterative by design.** Run it after each plan revision; the human
+audits the TLDR, fixes gaps in the plan, re-runs the skill, audits
+again. Handoff to a coding agent happens only after the human audit
+passes — `tldr-plan` is the audit surface, not the handoff event.
+
+```
+plan v1 → tldr-plan v1 → human audit finds gaps
+       → revise plan v2 → tldr-plan v2 → human audit
+       → … → human audit passes → THEN hand the plan to a coding agent
+```
+
+**Single reader: the human auditor.** The implementation agent does NOT
+read this artifact; the agent reads the original plan file directly.
 
 If you want findings/severity, use a validator skill (see "vs related
 skills" below). If you want forward-looking ADR/design-spec generation,
-use a preflight skill. This skill sits between those: it translates an
-existing plan into the artifact the human uses to verify the plan
-before handing it to an agent.
+use a preflight skill. This skill sits upstream of all those: it
+translates a long or ambiguous plan into a compact artifact a human can
+audit before handing the plan to an agent.
 
 ## Skills
 
 | Skill | Description |
 |---|---|
-| [`plan-handoff-brief`](skills/plan-handoff-brief/SKILL.md) | Compile an existing implementation plan into a self-contained **pre-handoff audit brief for a human auditor** — problem context, assumptions, scope, hard constraints, D0–D6 decision trace, diagrams, evidence, and stop conditions. Auditor verifies intent + design; only the source plan ships to the agent. Use after planning, before handing the plan to an agent. |
+| [`tldr-plan`](skills/tldr-plan/SKILL.md) | Compile a raw implementation plan into a compact-first, self-contained **TLDR artifact for human audit** — problem context, assumptions, scope, hard constraints, D0–D6 decision trace, critical diagrams, evidence, and stop conditions. **Iterative**: re-run after each plan revision until the human audit passes; only then hand the plan to a coding agent. Use when a plan is too long to audit directly or too vague to hand to an agent. |
 
 ## vs related skills
 
@@ -43,7 +54,7 @@ before handing it to an agent.
 | ADR / design-spec generation from a feature idea | [`terrylica/cc-skills@implement-plan-preflight`](https://skills.sh/terrylica/cc-skills/implement-plan-preflight) | It creates forward-looking decision artifacts (MADR + spec) |
 | Post-implementation drift check (work vs plan) | [`xiaolai/vmark@plan-audit`](https://skills.sh/xiaolai/vmark/plan-audit) | It compares git history against plan after implementation |
 | Reframe an ambiguous high-stakes decision | [`shanezzzz/decision-clarity-skill@decision-clarity`](https://skills.sh/shanezzzz/decision-clarity-skill/decision-clarity) | It clarifies fuzzy decisions, not concrete plans |
-| **A pre-handoff audit brief for the human** before the plan ships to an agent | **`plan-handoff-brief`** (this repo) | It translates an existing plan into a self-contained brief — context, assumptions, constraints, D0–D6 trace, evidence, stop conditions — that the human reads to verify intent + design (the agent reads the source plan, not this) |
+| **A compact, traceable artifact for iterative human audit of a plan** before it ships to an agent | **`tldr-plan`** (this repo) | It distills a long or ambiguous plan into a self-contained TLDR — context, assumptions, constraints, D0–D6 trace, AC, evidence, stop conditions — that a human re-reads after each plan revision until the plan is ready to hand off (the agent reads the source plan, not this) |
 
 ## Repo layout
 
@@ -68,21 +79,21 @@ repo with this layout):
 
 ```bash
 # user-level (available across all projects)
-npx skills add https://github.com/taoluo/claude-skills --skill plan-handoff-brief -g -y
+npx skills add https://github.com/taoluo/claude-skills --skill tldr-plan -g -y
 
 # project-level (scoped to one repo, run from project root)
-npx skills add https://github.com/taoluo/claude-skills --skill plan-handoff-brief -y
+npx skills add https://github.com/taoluo/claude-skills --skill tldr-plan -y
 ```
 
 Manual fallback:
 
 ```bash
 git clone --depth 1 https://github.com/taoluo/claude-skills.git /tmp/cs
-cp -R /tmp/cs/skills/plan-handoff-brief ~/.claude/skills/   # or <repo>/.claude/skills/
+cp -R /tmp/cs/skills/tldr-plan ~/.claude/skills/   # or <repo>/.claude/skills/
 rm -rf /tmp/cs
 ```
 
-Then in Claude Code: `/plan-handoff-brief <plan-file-path>` (or let the model
+Then in Claude Code: `/tldr-plan <plan-file-path>` (or let the model
 trigger it based on the skill's `description`).
 
 ## Authoring your own skill

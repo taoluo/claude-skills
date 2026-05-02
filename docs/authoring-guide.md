@@ -90,7 +90,10 @@ rewrite the description.
 
 ### 4. Keep `name:` short, kebab-case, and unambiguous
 
-- `plan-handoff-brief` ✅
+- `tldr-plan` ✅ (short, memorable, signals "compact restatement", iterable)
+- `plan-handoff-brief` ⚠️ (fine syntactically; biases users toward
+  one-shot framing — "handoff" reads as a destination event, but the
+  skill's actual workflow is iterate-until-audit-passes-then-handoff)
 - `Plan_Handoff_Brief` ❌ (mixed case + underscores; doesn't match URL
   conventions)
 - `pre-handoff` ❌ (too generic; collides with other skills)
@@ -211,6 +214,22 @@ faster and the rejection of "wrong-fit" users cleaner.
   body says single-reader, the description must too — otherwise the
   rendered output reads awkwardly under either reader's hat. Ship
   description and body changes together, never just one.
+- **2026-05-02**: One-shot vs iterative framing. Renamed
+  `plan-handoff-brief` → `tldr-plan` after recognizing that "handoff"
+  reads as a single destination event, while the actual workflow is
+  iterative: `plan v1 → tldr v1 → audit gaps → revise plan v2 → tldr
+  v2 → … → audit passes → THEN handoff`. The skill is the audit
+  surface, not the handoff event. Lesson: when the skill is run
+  multiple times against the same artifact (each time the source
+  document is revised), name it for what each run produces ("a TLDR")
+  not for what the eventual ship looks like ("a handoff brief"). The
+  former invites re-runs; the latter implies "ship now". Three
+  renames in a single session (plan-viz → plan-audit-brief →
+  plan-handoff-brief → tldr-plan) is too many; the underlying mistake
+  was treating each rename as fixing a positioning bug rather than
+  thinking through workflow shape upfront. For new skills: write the
+  end-to-end usage flow (1st invocation, 5th invocation, 100th
+  invocation) before picking a name, not after.
 - **2026-05-02**: Outcome-vs-mechanism layering. Acceptance criteria
   hidden in evidence section after decisions inverted the derivation
   order; reviewer surfaced this. Lesson: split acceptance into Tier 1

@@ -1,4 +1,4 @@
-# Plan Handoff Brief Examples
+# TLDR Plan Examples
 
 ## Example Input
 
@@ -19,7 +19,7 @@ Proposed behavior:
 
 ## Example Output Snippet
 
-# Plan Handoff Brief
+# TLDR Plan
 
 ## 0. Audit Dashboard
 

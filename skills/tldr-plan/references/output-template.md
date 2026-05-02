@@ -1,6 +1,6 @@
-# Plan Handoff Brief Output Template
+# TLDR Plan Output Template
 
-# Plan Handoff Brief
+# TLDR Plan
 
 Feature: **...**
 Source: [...]
