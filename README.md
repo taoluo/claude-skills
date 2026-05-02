@@ -81,6 +81,13 @@ rm -rf /tmp/cs
 Then in Claude Code: `/plan-handoff-brief <plan-file-path>` (or let the model
 trigger it based on the skill's `description`).
 
+## Authoring your own skill
+
+See [`docs/authoring-guide.md`](docs/authoring-guide.md) for SKILL.md
+structure, frontmatter gotchas (especially the colon-in-description
+trap), description tuning for the CLI's trigger heuristic, and a
+checklist for verifying before you publish.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
