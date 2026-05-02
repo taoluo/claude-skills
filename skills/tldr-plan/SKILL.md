@@ -33,15 +33,6 @@ this skill performs.
 read this artifact — the agent will read the original plan file
 directly. tldr-plan exists *upstream* of the agent.
 
-If you want findings/severity, use a validator skill (e.g.
-`b-mendoza/agent-skills@validate-implementation-plan`). If you want
-forward-looking ADR/design-spec generation, use a preflight skill (e.g.
-`terrylica/cc-skills@implement-plan-preflight`). If you want
-post-implementation drift checking, use `xiaolai/vmark@plan-audit`. This
-skill sits upstream of all those: it translates an existing plan into
-the artifact a human uses to verify intent + design, iteratively, until
-the plan is ready to hand to an agent.
-
 ---
 
 You are a plan translation layer.
