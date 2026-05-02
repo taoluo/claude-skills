@@ -72,11 +72,33 @@ Also support:
 
 ## Output File
 
-Write the result to:
+Derive the output filename from the input plan filename so multiple plans
+in the same workspace don't collide and re-runs against the *same* plan
+overwrite cleanly.
 
-```text
-docs/tldr-plan.md
-```
+**Naming rule**: `docs/tldr-<plan-stem>.md`
+
+Where `<plan-stem>` is the basename of the input plan file with the `.md`
+suffix stripped. Examples:
+
+| Input plan path | Output |
+|---|---|
+| `plans/miles-port-unified-plan.md` | `docs/tldr-miles-port-unified-plan.md` |
+| `claude/plans/giggly-tumbling-cook.md` | `docs/tldr-giggly-tumbling-cook.md` |
+| `PLAN.md` | `docs/tldr-PLAN.md` |
+| `docs/proposal.md` | `docs/tldr-proposal.md` |
+
+**Iterative re-runs against the same plan overwrite the same output file**
+(intentional — the skill is designed to be re-run after each plan
+revision). Different plans in the same workspace get different outputs
+and never collide.
+
+**Fallback when no plan file is supplied** (`/tldr-plan`, `/tldr-plan current plan`,
+`/tldr-plan current diff` forms): use `docs/tldr-current-plan.md`.
+
+**Scratch dir for Mermaid validation** also uniques per output to avoid
+concurrent-run collision:
+`tmp/tldr-<plan-stem>-mermaid-check/`.
 
 If writing files is not available, print the full Markdown result in the chat.
 
@@ -146,7 +168,7 @@ Extract in this order (do **not** start from diagrams):
 6. Mark low-level implementation details with no clear parent decision as `unanchored`.
 7. Generate a compact visible audit surface.
 8. Put full traceability in visible appendix sections.
-9. Write the result to `docs/tldr-plan.md`.
+9. Write the result to `docs/tldr-<plan-stem>.md` (see `## Output File` for derivation rule). Throughout the rest of this skill, `$OUT` denotes that path; substitute the actual derived filename when running shell commands.
 9a. **Citation-grid integrity check (mandatory before mechanical validation).** Before running the Mermaid validator, audit the citation grid for orphan IDs and trace/visible drift. Programmatic check:
 
     ```bash
@@ -154,7 +176,7 @@ Extract in this order (do **not** start from diagrams):
     # Drift here means visible region under-represents a decision the trace claims exists.
     python3 -c '
     import re, sys
-    t = open("docs/tldr-plan.md").read()
+    t = open("$OUT").read()  # $OUT = derived output path, see ## Output File
     # Pull all D-IDs from the Appendix A table.
     appA_start = t.find("## Appendix A")
     appB_start = t.find("## Appendix B")
@@ -182,7 +204,7 @@ Extract in this order (do **not** start from diagrams):
     ```bash
     python3 -c '
     import re, sys
-    t = open("docs/tldr-plan.md").read()
+    t = open("$OUT").read()  # $OUT = derived output path, see ## Output File
     def slice_section(start_marker, end_marker):
         s = t.find(start_marker)
         e = t.find(end_marker, s + 1) if s >= 0 else -1
@@ -271,13 +293,15 @@ Extract in this order (do **not** start from diagrams):
     | Change `AC1` ID in §3.5 to `AC 1` (format inconsistent across tables) | 1 |
     | All four tables consistent, no orphans, no forbidden tokens | 0 |
 
-10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `docs/tldr-plan.md` compiles. Eyeballing is not a substitute for the parser. Run:
+10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `$OUT` compiles (`$OUT` = the derived output path from Step 9; e.g., `docs/tldr-miles-port-unified-plan.md`). `$STEM` denotes the same value as `<plan-stem>` (e.g., `miles-port-unified-plan`). Eyeballing is not a substitute for the parser. Run:
 
     ```bash
-    rm -rf tmp/tldr-plan-mermaid-check && mkdir -p tmp/tldr-plan-mermaid-check
-    node -e 'const fs=require("fs"); const t=fs.readFileSync("docs/tldr-plan.md","utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/tldr-plan-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
+    OUT=docs/tldr-<plan-stem>.md       # substitute the actual derived path
+    STEM=tldr-<plan-stem>
+    rm -rf "tmp/${STEM}-mermaid-check" && mkdir -p "tmp/${STEM}-mermaid-check"
+    node -e 'const fs=require("fs"); const t=fs.readFileSync(process.env.OUT,"utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/${process.env.STEM}-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
     fail=0
-    for f in tmp/tldr-plan-mermaid-check/*.mmd; do
+    for f in "tmp/${STEM}-mermaid-check"/*.mmd; do
       if npx -y @mermaid-js/mermaid-cli -i "$f" -o "${f%.mmd}.svg" -b transparent >/dev/null 2>&1; then
         echo "OK  $f"
       else
@@ -288,7 +312,7 @@ Extract in this order (do **not** start from diagrams):
     [ $fail -eq 0 ] || echo "MERMAID VALIDATION FAILED"
     ```
 
-    If any block reports `FAIL`, edit `docs/tldr-plan.md`, re-run the loop, and repeat until every block reports `OK`. Common parser errors traced back to syntax in `## Mermaid Rules`. The `tmp/tldr-plan-mermaid-check/` directory is scratch; leave it (or delete it) — do not commit it. If `npx`/`node` is unavailable, state that the mechanical check could not run and ask the user how to proceed instead of skipping the step silently.
+    If any block reports `FAIL`, edit `$OUT`, re-run the loop, and repeat until every block reports `OK`. Common parser errors traced back to syntax in `## Mermaid Rules`. The `tmp/${STEM}-mermaid-check/` directory is scratch; leave it (or delete it) — do not commit it. If `npx`/`node` is unavailable, state that the mechanical check could not run and ask the user how to proceed instead of skipping the step silently.
 
 ## Output Layout
 
