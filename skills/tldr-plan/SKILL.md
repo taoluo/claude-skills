@@ -30,21 +30,16 @@ plan v1 → tldr-plan v1 → human audit finds gaps
 this skill performs.
 
 **Single reader: the human auditor.** The implementation agent does NOT
-read this artifact — the agent will read the original plan file
-directly. tldr-plan exists *upstream* of the agent.
+read this artifact — the agent reads the original plan file directly.
+The human reviews the plan via tldr-plan, fixes issues in the plan,
+re-runs tldr-plan on the revised plan, and only ships the plan (never
+tldr-plan) to the agent once the audit passes.
 
----
-
-You are a plan translation layer.
-
-Your job is to translate a raw implementation plan into a **self-contained pre-ship audit artifact** for a human auditor: a single Markdown file that lets the human verify whether the plan reflects their intent, has sound high-level design, and is ready to be handed off to an implementation agent.
-
-**Single reader: the human auditor.** The implementation agent does NOT read this artifact — the agent will read the original plan file directly. tldr-plan exists *upstream* of the agent: the human reviews the plan via tldr-plan, fixes issues in the plan, then ships the plan (not tldr-plan) to the agent.
-
-You do not review, approve, reject, or audit the plan yourself.
-You do not say whether the plan is safe or unsafe.
-You do not create a separate review report.
-You do not write content addressed to the agent — assertions about agent behavior live in the source plan, not here.
+**You are a plan translation layer.** You do not review, approve,
+reject, or audit the plan yourself. You do not call the plan safe or
+unsafe. You do not create a separate review report. You do not write
+content addressed to the agent — assertions about agent behavior live
+in the source plan, not here.
 
 ## Primary Goal: Pre-Ship Human Audit Artifact
 
@@ -931,12 +926,13 @@ Use `unanchored` when an implementation detail lacks a parent decision.
 
 | Kind | ID | Defined in | Used by |
 | ---- | -- | ---------- | ------- |
-| Assumption | `A1, A2, ...` | `## 2 Assumptions` | `## 5 Decision Map`, `## 6 Evidence`, `## 7 Audit Checkpoints` |
-| Hard constraint | `C1, C2, ...` | `## 3.2 Hard Constraints` | `## 5`, `## 6`, `## 7`, `Appendix C` |
+| Assumption | `A1, A2, ...` | `## 2 Assumptions` | `## 3.5 AC`, `## 5 Decision Map`, `## 6 Evidence`, `## 7 Audit Checkpoints` |
+| Hard constraint | `C1, C2, ...` | `## 3.2 Hard Constraints` | `## 3.5 AC`, `## 5`, `## 6`, `## 7`, `Appendix C` |
 | Fail-fast assert | `FF1, FF2, ...` | `## 3.2` (when distinguished from hard contract) | same as `C` |
+| Acceptance criterion | `AC1, AC2, ...` | `## 3.5 Acceptance Criteria` | `## 5` (AC served column), `## 6.1` (AC verified column), `## 7`, `Appendix E` (Done lines) |
 | Decision | `D0..D6` | `## 5 Decision Map` | `## 6`, `## 7`, all appendices |
-| Milestone | `M11.x / Phase N / vN` | `## 3.3 Milestones` | decision rows, evidence rows, audit checkpoints |
-| Evidence | `E1, E2, ...` | `## 6.1 Evidence Required` | `## 7 Audit Checkpoints`, Appendix C cross-ref |
+| Milestone | `M11.x / Phase N / vN` | `## 3.3 Milestones` | `## 3.5 AC` (Milestone column), decision rows, evidence rows, audit checkpoints, Appendix E Done lines |
+| Evidence | `E1, E2, ...` | `## 6.1 Evidence Required` | `## 3.5 AC` (Verified by column), `## 7 Audit Checkpoints`, Appendix C cross-ref |
 
 Define each ID exactly once in its canonical table. Other sections cite by ID only — do not redefine the content.
 
@@ -951,10 +947,11 @@ Unnumbered prose constraints decay; do not leave them only in prose.
 **Citation-grid integrity (no orphan IDs).** Every ID that appears in any canonical table MUST also appear in at least one cross-reference, AND every ID that appears in a *trace table* (Appendices A / C / D) MUST also appear in the corresponding *visible* table or diagram. Concrete checks:
 
 - For every row in `Appendix A: Full Decision Trace`, the decision ID MUST appear in `## 5 Decision Map` (both the DAG node *and* the compact decision table). If `Appendix A` lists `D3.F` but `## 5` only has `D3A..D3E`, the visible region is silently under-representing a decision the trace says exists. Either add the node to the DAG or remove it from the trace; never let them drift.
+- For every `ACn` in `## 3.5 Acceptance Criteria`, at least one `Dn` row in `## 5` MUST cite it in the `AC served` column AND at least one `En` row in `## 6.1` MUST cite it in the `AC verified` column (orphan AC = unfulfilled or unverifiable promise; Step 9a hard-fails). Conversely, every `Dn` row in `## 5` MUST cite ≥1 AC in its `AC served` cell (orphan decision = over-engineering or hidden goal).
 - For every constraint `Cn` in `## 3.2`, at least one row in `Appendix C: Risk → Evidence Matrix` or `## 6.1 Evidence Required` should reference it (otherwise the constraint has no verification handle).
 - For every assumption `An` in `## 2`, at least one row in `## 6.2 Stop Conditions` or `## 7 Audit Checkpoints` should reference it (otherwise no one notices when the assumption fails).
 - For every evidence ID `En` in `## 6.1`, at least one checkpoint in `## 7` should reference it (otherwise the evidence has no audit handle).
-- For every milestone `M*` in `## 3.3`, at least one decision row or evidence row should cite it (otherwise the milestone is a label without obligations).
+- For every milestone `M*` in `## 3.3`, at least one `ACn` row or decision row or evidence row should cite it (otherwise the milestone is a label without obligations). Appendix E `Done(M*)` lines must reference only `ACn` IDs that exist in `## 3.5`.
 
 Before declaring the document complete, do a final pass over each canonical table and grep the rest of the document for the IDs. Orphan IDs are the most common silent decay path.
 
