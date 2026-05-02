@@ -156,7 +156,9 @@ Extract in this order (do **not** start from diagrams):
    b. **Core assumptions** — implicit / explicit premises the plan depends on. Number `A1, A2, ...`.
    c. **Scope boundary** — in / out of scope, with rationale where the plan distinguishes "rejected alternative" from "out of scope".
    d. **Hard constraints** — fail-fast asserts, invariants, `must` / `必须`. Number `C1, C2, ...` (`FF1, FF2, ...` if the plan distinguishes fail-fast specifically).
-   d.5. **Acceptance criteria — outcome-level (Tier 1)**. Number `AC1, AC2, ...`. Derivable from a–d alone (Goal / Assumptions / Scope / Constraints / Milestones); **must NOT reference any decision** (`Dn`). One row per outcome the plan promises a human at delivery time. If `## 3.3 Milestones` exists, group AC by milestone — milestones are the natural acceptance unit (a milestone is a sign-off boundary, a decision is not). Each AC is the answer to "what does the user actually receive when this is done?", written in user-visible terms, not designer-visible terms. The strict outcome-vs-mechanism boundary is what gives later decisions something to derive *from*; with no AC, decisions self-justify and over-engineering surfaces only at audit time.
+   d.5. **Acceptance criteria — outcome-level (Tier 1, REQUIREMENT axis)**. Number `AC1, AC2, ...`. Derivable from `Goal + An + Cn` ONLY (allow-list); **must NOT reference `Dn` (decisions) NOR `Mn` (milestones — those are schedule, not requirement)**. One row per outcome the plan promises a human at delivery time. Each AC answers "what does the user actually receive when this is done?" in user-visible terms, not designer-visible terms. AC's `Milestone` column points forward to §3.4 (when this AC ships) — that is scheduling join, NOT derivation. The strict outcome-vs-mechanism-vs-schedule boundary is what gives later decisions something to derive *from*; with no AC, decisions self-justify and over-engineering surfaces only at audit time.
+
+   d.6. **Milestones — schedule axis (when each AC ships)**. Captured from staged-delivery tags (`M11.x`, `Phase N`, `vN`, `gate N`) per the pattern-trigger pre-pass. Each milestone has its own scope / key deliverables / gates plus a `Delivers AC` column listing the `ACn` IDs scheduled in that milestone. Milestones organize AC delivery into sign-off boundaries; `Done(Mn) = AC<i> ∧ AC<j> ∧ ...` is the machine-checkable composition. AC is the deeper concept (requirement); Milestone is shallower (schedule for delivering the requirement).
    e. **Decision hierarchy D0–D6** — derived from a–d.5, not invented in isolation. Each `Dn` must cite at least one `AC` it serves. A `Dn` that cites no `AC` is either an undeclared goal (write the missing AC) or over-engineering (cut the decision).
    f. **Critical views** — only diagrams that answer a specific audit question.
    g. **Evidence required + stop conditions** — what to verify before "done"; what should halt the implementation. Each evidence row may bind to `D` (mechanism-level: "this decision is implemented") and/or `AC` (outcome-level: "this acceptance criterion is met"); both bindings together close the trace `AC → D → E`.
@@ -168,13 +170,13 @@ Extract in this order (do **not** start from diagrams):
 
     - Out-of-scope markers (`Out of Scope`, `不做`, `out-of-scope`, `non-goal`, `rejected alternative`, `已决边界`) → always produce `## 3.1 Out of Scope`. If silent, write `none declared` (silence is itself an audit signal).
     - Fail-fast asserts, critical invariants, `must` / `必须` constraints, startup validation blocks → produce a numbered `## 3.2 Hard Constraints` table (`C1`, `C2`, ... for hard contract; `FF1`, `FF2`, ... for fail-fast asserts specifically).
-    - Phase / milestone / version tags (`M11.x`, `Phase 1`, `v2`, `Week 1`, `gate N`) → produce a single canonical `## 3.3 Milestones` table.
-    - A single decision with ≥3 named alternatives shipped under different conditions (transports, backends, algorithms) → produce a `## 3.4 Strategy Comparison` matrix.
+    - Phase / milestone / version tags (`M11.x`, `Phase 1`, `v2`, `Week 1`, `gate N`) → produce a single canonical `## 3.4 Milestones` table.
+    - A single decision with ≥3 named alternatives shipped under different conditions (transports, backends, algorithms) → produce a `## 3.5 Strategy Comparison` matrix.
     - Hardware/resource words in the goal (`GPU`, `node`, `port`, `file descriptor`, `NUMA`, `socket`, `lane`, `rank`, `worker`, `shard`) where topology affects correctness, placement, scheduling, ownership, or lifecycle → add `### 2.3 Physical Topology View` to Critical Views.
     - New wire / RPC / HTTP / callback / event / config schemas → produce `## Appendix F: Activated Pattern Details` with a Wire-Format Quick Reference table.
     - Subsystems with independent lifecycle and ≥3 meaningful states (router admission, cache slot, port pool, scheduler queue, worker, connection) → produce a `stateDiagram-v2` in Appendix F. Promote to Critical Views only when lifecycle correctness is one of the top audit risks.
     - Cross-cutting role/path dimensions (`rank × role`, `phase × component`, `transport × path`) → produce a role matrix in Appendix F, or visible section if it is central.
-    - Rejected alternatives / "已决边界" / design tradeoffs scattered through the plan → consolidate into `## 3.1 Out of Scope` (rejection rationale) and `## 3.4 Strategy Comparison` (alternatives table). Do not duplicate across appendices.
+    - Rejected alternatives / "已决边界" / design tradeoffs scattered through the plan → consolidate into `## 3.1 Out of Scope` (rejection rationale) and `## 3.5 Strategy Comparison` (alternatives table). Do not duplicate across appendices.
     - **Alternative-axis numbering in source plan** (e.g. `F1..F12` features, `Component A..G`, `Workstream 1..N`, `Module M1..Mk`) different from the D0–D6 decision axis → produce a **navigation crosswalk table in `Appendix F`** so an auditor familiar with the source plan can jump from `F4` (their mental handle) to the right `D` rows in tldr-plan. Format: `| Source-axis ID | Primary D | Secondary D | Notes |`. Without this crosswalk, auditors waste time guessing where their `Fn` lives in the audit doc.
 
     When a trigger fires, include the corresponding pattern. When it does not fire, omit the pattern and do not invent placeholder content. Do not invent a fake topology for a software-only plan or fabricate constraints to fill `## 3.2`.
@@ -214,7 +216,7 @@ Extract in this order (do **not** start from diagrams):
 
     Apply the same eyeball check for `Cn`, `An`, `En`, `Mn`, `ACn`: every ID defined in its canonical table should appear in at least one cross-reference. If any ID is orphaned, either add a cross-reference or remove it from its canonical table — never leave it dangling.
 
-    **AC integrity (HARD FAIL — extends the orphan check above)**: the AC layer (§3.5 ↔ §5 `AC served` ↔ §6.1 `AC verified`) has additional bidirectional rules. Any violation hard-fails Step 9a (exit 1; do not advance to Step 10).
+    **AC integrity (HARD FAIL — extends the orphan check above)**: the AC layer (§3.3 ↔ §5 `AC served` ↔ §6.1 `AC verified` ↔ §3.4 `Delivers AC`) has additional bidirectional rules. Any violation hard-fails Step 9a (exit 1; do not advance to Step 10).
 
     ```bash
     python3 -c '
@@ -225,9 +227,9 @@ Extract in this order (do **not** start from diagrams):
         e = t.find(end_marker, s + 1) if s >= 0 else -1
         return t[s:e] if s >= 0 and e >= 0 else ""
 
-    s35 = slice_section("### 3.5", "### 4")          # also handles "## 4"
-    if not s35:
-        s35 = slice_section("## 3.5", "## 4")
+    s33 = slice_section("### 3.3 Acceptance", "### 3.4")  # AC at §3.3 (REQUIREMENT axis)
+    if not s33:
+        s33 = slice_section("## 3.3 Acceptance", "## 3.4")
     s5  = slice_section("## 5. Decision Map", "## 6.")
     s61 = slice_section("#### 6.1", "#### 6.2")
     if not s61:
@@ -235,15 +237,17 @@ Extract in this order (do **not** start from diagrams):
 
     AC_TOKEN = r"\bAC[1-9][0-9]*\b"
 
-    # 1. extract canonical ACn from §3.5 ID column (first column of pipe-table rows)
+    # 1. extract canonical ACn from §3.3 ID column (first column of pipe-table rows)
     ac_defined = set()
-    for line in s35.splitlines():
+    for line in s33.splitlines():
         m = re.match(r"\|\s*(AC[1-9][0-9]*)\s*\|", line)
         if m: ac_defined.add(m.group(1))
 
-    # 2. §3.5 Derives-from allow-list: only Goal | A\d+ | C\d+ | M\S+
+    # 2. §3.3 Derives-from allow-list: ONLY Goal | A\d+ | C\d+
+    #    NOT Mn (milestone is schedule, not requirement — lives in §3.4)
+    #    NOT Dn / En / Risk* / OpenQuestion* (mechanism / verification — downstream)
     forbidden_in_derives = []
-    for line in s35.splitlines():
+    for line in s33.splitlines():
         cells = [c.strip() for c in line.split("|")]
         # Derives-from is the 3rd data column: row = | ID | Outcome | Derives | Verified | Milestone |
         if len(cells) >= 5 and re.match(r"AC[1-9][0-9]*", cells[1]):
@@ -253,7 +257,8 @@ Extract in this order (do **not** start from diagrams):
                 if tok in {"Goal"}: continue
                 if re.match(r"^A[1-9][0-9]*$", tok): continue
                 if re.match(r"^C[1-9][0-9]*$", tok): continue
-                if re.match(r"^M\S+$", tok): continue
+                # NOTE: Mn is NOT in allow-list (milestone is schedule, not requirement);
+                # AC's `Milestone` column points forward to §3.4 separately.
                 forbidden_in_derives.append((cells[1], tok))
 
     # 3. §5 AC served: every Dn row must have ≥1 AC token; tokens ⊆ ac_defined
@@ -292,7 +297,7 @@ Extract in this order (do **not** start from diagrams):
     if d_without_ac:
         print(f"FAIL: Dn rows with empty AC served (orphan decisions): {sorted(d_without_ac)}"); fail = True
     if forbidden_in_derives:
-        print(f"FAIL: §3.5 Derives-from has forbidden tokens (allow-list = Goal | An | Cn | Mn): {forbidden_in_derives}"); fail = True
+        print(f"FAIL: §3.3 Derives-from has forbidden tokens (allow-list = Goal | An | Cn ONLY; Mn is schedule, lives in §3.4): {forbidden_in_derives}"); fail = True
     sys.exit(1 if fail else 0)
     print("AC integrity OK")
     '
@@ -304,8 +309,9 @@ Extract in this order (do **not** start from diagrams):
     |---|---|
     | Remove the only `AC1` from §5 `AC served` (D1 has no AC) | 1 |
     | Remove the only `AC1` from §6.1 `AC verified` (AC uncovered) | 1 |
-    | Change §3.5 `Derives from` to `Goal, D1` (forbidden token) | 1 |
-    | Change `AC1` ID in §3.5 to `AC 1` (format inconsistent across tables) | 1 |
+    | Change §3.3 `Derives from` to `Goal, D1` (forbidden — Dn is mechanism) | 1 |
+    | Change §3.3 `Derives from` to `Goal, M11.1` (forbidden — Mn is schedule, not requirement) | 1 |
+    | Change `AC1` ID in §3.3 to `AC 1` (format inconsistent across tables) | 1 |
     | All four tables consistent, no orphans, no forbidden tokens | 0 |
 
 10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `$OUT` compiles (`$OUT` = the derived output path from Step 9; e.g., `plans/miles-port-unified-plan.tldr.md`). `$STEM` denotes `<plan-stem>.tldr` (e.g., `miles-port-unified-plan.tldr`). Eyeballing is not a substitute for the parser. Run:
@@ -361,8 +367,8 @@ Conditional — include only when the corresponding signal is present:
 | `## 1 Problem Context` | plan has > 3 lines of problem-statement-shaped prose (gap, motivation, current vs desired). If signal is weaker, fold its substance into Dashboard's Goal field and skip the section. |
 | `## 2 Assumptions` | ≥ 3 distinct assumption IDs survive extraction. If only 1–2, fold them into `## 3.2 Hard Constraints` table as `(assumption)` rows and skip. |
 | `## 3.2 Hard Constraints` | plan has fail-fast asserts, invariants, or `must` / `必须` constraints. |
-| `## 3.3 Milestones` | staged delivery exists (M11.x, Phase 1, v2, gate N). |
-| `## 3.4 Strategy Comparison` | a single decision has ≥ 3 named alternatives shipped under different conditions. |
+| `## 3.4 Milestones` | staged delivery exists (M11.x, Phase 1, v2, gate N). If absent, AC table at §3.3 uses `Milestone = (none)` for all rows. |
+| `## 3.5 Strategy Comparison` | a single decision has ≥ 3 named alternatives shipped under different conditions. |
 | `## 4.2 Runtime / Data Path View` | runtime behavior changes are central to the audit (most non-trivial plans). Skip for pure refactors with no behavior delta. |
 | `## 4.3 Physical Topology View` | hardware/resource words in goal AND topology affects correctness. |
 | `## 6 Evidence & Stop Conditions` | plan defines evidence, gates, or test gates explicitly. If silent, list stop conditions only and put any inferable evidence rows in Appendix C; skip `## 6` heading entirely. |
@@ -419,14 +425,22 @@ Source: [...]
 ### 3.2 Hard Constraints
 <!-- conditional: fail-fast / invariant / must constraints exist; numbered C1..Cn / FF1..FFn -->
 
-### 3.3 Milestones
-<!-- conditional: staged delivery exists; single canonical table -->
+### 3.3 Acceptance Criteria
+<!-- always include; outcome-level (Tier 1); REQUIREMENT axis — what we owe -->
+<!-- "Derives from" allow-list: Goal | An | Cn (NOT Mn — milestone is schedule, not requirement) -->
+<!-- "Milestone" column points forward to §3.4 (forward-ref OK; Milestone IDs are stable handles) -->
 
-### 3.4 Strategy Comparison
+### 3.4 Milestones
+<!-- conditional: staged delivery exists; SCHEDULE axis — when we deliver each AC -->
+<!-- "Delivers AC" column = AC<i> ∧ AC<j> ∧ ... — explicit composition by AC (machine-checkable) -->
+
+### 3.5 Strategy Comparison
 <!-- conditional: one decision has >=3 named alternatives -->
 
-### 3.5 Acceptance Criteria
-<!-- always include; outcome-level (Tier 1); group by milestone if 3.3 exists; -->
+<!-- Why this order: AC (requirement) is the deeper concept; Milestones (schedule) -->
+<!-- organize when AC ship. Strategy Comparison (mechanism alternatives) comes after -->
+<!-- both because it serves AC under different deployment conditions. AC > Milestone -->
+<!-- > Strategy in importance. -->
 <!-- "Derives from" column may only cite §0–§3 IDs (Goal, A, C, M); never cite Dn here -->
 
 ## 4. Critical Views
@@ -474,9 +488,10 @@ Source: [...]
 ...
 ```
 
-The visible region order — `0 Dashboard → 1 Context → 2 Assumptions → 3 Scope & Constraints (3.1 Out of Scope → 3.2 Hard Constraints → 3.3 Milestones → 3.4 Strategy Comparison → 3.5 Acceptance Criteria) → 4 Critical Views → 5 Decision Map → 6 Evidence & Stop Conditions → 7 Audit Checkpoints` — is fixed: triage first, background next, **contract (including outcome-level acceptance) before design**, design before evidence, evidence before checklist. Do not reorder.
+The visible region order — `0 Dashboard → 1 Context → 2 Assumptions → 3 Scope & Constraints (3.1 Out of Scope → 3.2 Hard Constraints → 3.3 Acceptance Criteria → 3.4 Milestones → 3.5 Strategy Comparison) → 4 Critical Views → 5 Decision Map → 6 Evidence & Stop Conditions → 7 Audit Checkpoints` — is fixed: triage first, background next, **contract (including outcome-level acceptance) before design**, design before evidence, evidence before checklist. Do not reorder.
 
-Why §3.5 sits inside the contract (§3) and before §5 Decisions: acceptance criteria are outcome-level promises to the human, derivable from Goal+Assumptions+Constraints+Milestones alone. They MUST be expressible without any reference to design decisions — that is the test that separates "what we owe the user" from "how we propose to build it". Decisions in §5 then derive **from** §3.5 (each `Dn` cites the `ACn` it serves), which closes the loop `AC → D → E` and exposes orphan decisions (a `Dn` with no `AC` is either over-engineering or a hidden goal).
+Why §3.3 (AC) precedes §3.4 (Milestones) and §3.5 (Strategy):
+**AC = requirement axis (what we owe); Milestones = schedule axis (when we deliver each AC); Strategy = mechanism alternatives (how we deliver each AC under different conditions)**. The requirement is the deepest concept — schedule and mechanism both derive from it. AC must be expressible from `Goal + An + Cn` alone, with **NO reference to `Mn`** (Milestone is when, not what). Decisions in §5 then derive **from** §3.3 AC (each `Dn` cites the `ACn` it serves), closing the loop `AC → D → E` and exposing orphan decisions (a `Dn` with no `AC` is either over-engineering or a hidden goal). §3.4 Milestones organizes AC delivery into sign-off boundaries; the `Delivers AC` column makes the composition `Done(Mn) = AC<i> ∧ AC<j> ∧ ...` machine-checkable in the contract layer itself.
 
 Why Dashboard precedes Context: Dashboard is a 30-second triage view (`Goal / risk / files / focus`) that lets the reader decide whether the plan is relevant *before* committing to read the background. Context expands the Dashboard's `Goal` and `User audit focus` fields, it does not replace them.
 
@@ -539,18 +554,31 @@ Rules:
 - Number `A1, A2, A3, ...`. The numbers are citation handles for `## 6 Evidence & Stop Conditions` and the decision rows.
 - "If it fails" must be concrete: which decision becomes invalid, which constraint is violated, which behavior breaks.
 - If an assumption is not verified by anything in the plan, mark `Evidence / check` as `unverified` and add a corresponding row to `## 7 Audit Checkpoints`.
+- **If an assumption is already enforced by a §3.2 hard constraint (F10 startup assert / runtime check), keep only the "why it matters / if it fails" risk narrative here, and point `Evidence / check` to the corresponding `Cn`.** Don't restate the constraint as prose in the `Assumption` cell — that splits the same rule across A and C and makes both decay. Example:
+  ```
+  | A1 | partial overlap topology (train ⊂ infer) | required for subset sleep/wake to free GPU | C1 (F10 assert) | shrink/wake semantics break, train+infer fight for same GPU |
+  ```
+  Here A1 carries the *risk narrative* (why we depend on it, what breaks if it fails); C1 carries the *machine-checkable form* (`assert train_devices.issubset(infer_devices)`). Auditor reads A1 to understand the bet; implementer reads C1 to know which assert to write. Same dependency, two views — same intentional-overlap pattern as §3.1 ↔ §3.2.
 
 ### 3. Scope & Constraints
 
 This is the audit *contract*: what is in / out of scope, what hard constraints must hold, what milestones gate delivery, what alternatives were considered. Sub-sections appear per workflow 3a triggers.
 
-#### 3.1 Out of Scope (always include)
+**This section separates product scope from executable guardrails:**
+- §3.1 Out of Scope lists capabilities intentionally not delivered in this milestone.
+- §3.2 Hard Constraints lists preconditions the implementation must enforce or test.
+
+Some items appear in both: the Out-of-Scope row explains the product boundary; the Constraint row names the exact fail-fast check. Do not merge — readers of each section are different (auditor vs implementer) and the framings differ.
+
+#### 3.1 Out of Scope (always include — PRODUCT BOUNDARY axis)
 
 Bullet list of items the plan explicitly excludes. If the plan is silent, write `none declared` — the absence is itself an audit signal.
 
 Pull in items from rejected-alternatives lists, "non-goal" callouts, and "已决边界" sections so they live in one canonical place.
 
-#### 3.2 Hard Constraints (conditional)
+Phrasing should be **feature-named** ("X is not supported in this milestone", "Y is deferred to M11.5") — describes what the BUILD does NOT include. If a §3.1 entry has a corresponding §3.2 runtime guardrail, this is intentional overlap (see axis clarification above); the §3.2 entry will use the **checkable form**, this entry uses the **product-boundary form**.
+
+#### 3.2 Hard Constraints (conditional — RUNTIME GUARDRAIL axis)
 
 Numbered table of fail-fast asserts, critical invariants, and `must` / `必须` constraints. Use `C1, C2, ...` for hard contract; `FF1, FF2, ...` when the plan distinguishes fail-fast asserts specifically.
 
@@ -559,39 +587,58 @@ Numbered table of fail-fast asserts, critical invariants, and `must` / `必须` 
 
 Numbers are **citation handles** — PR review must be able to write "violates C5". Unnumbered prose constraints decay; do not leave them only in prose.
 
-#### 3.3 Milestones (conditional)
+**Phrasing rule (HARD)**: write each constraint as a **checkable condition**, not as a vague "not supported" sentence. The `Constraint` cell should be a predicate the implementer can lift directly into an `assert` or test. Examples:
 
-Single canonical table for staged delivery. Other sections may cite milestone IDs but must not redefine them.
+| ❌ Vague (belongs in §3.1, not §3.2) | ✅ Checkable (correct §3.2 form) |
+|---|---|
+| `MoE / EP not supported` | `expert_model_parallel_size == 1 and moe_router_topk == 0` |
+| `PD disaggregation not allowed` | `not has_pd_disaggregation` (`SglangConfig` property) |
+| `Async save breaks the port` | `not args.async_save` (M7 segfault) |
+| `M11.1 forces cpu_serialize` | `args.model_update_transport == "cpu_serialize"` (when `DO_TIME_SHARING`) |
 
-| Milestone | Scope | Key deliverables | Gates |
-| --------- | ----- | ---------------- | ----- |
+A vague entry tells the auditor "this is excluded"; a checkable entry tells the implementer "write this assert at this point in the code". §3.2 is for the implementer; §3.1 is for the auditor. If you find yourself writing vague phrasing in §3.2, move it to §3.1 — and if it should ALSO be runtime-enforced, write the checkable version separately in §3.2 (intentional overlap).
 
-#### 3.4 Strategy Comparison (conditional)
-
-Side-by-side matrix when one decision has ≥3 named alternatives shipped under different conditions (transports, backends, algorithms).
-
-| Alternative | When chosen | Trade-off | Status |
-| ----------- | ----------- | --------- | ------ |
-
-#### 3.5 Acceptance Criteria (always include)
+#### 3.3 Acceptance Criteria (always include — REQUIREMENT axis)
 
 **Outcome-level (Tier 1)** acceptance criteria the plan promises a human at delivery time. Numbered `AC1, AC2, ...` (flat — milestone membership lives in the `Milestone` column, not the ID). Single canonical table, sorted by milestone then ID.
 
-**Hard rule** (`Derives from` allow-list): the `Derives from` column may cite `Goal`, `An`, `Cn`, `Mn` — and **only** these. `Dn`, `En`, `Risk*`, `OpenQuestion*` are forbidden. AC are written before decisions exist; the moment an AC needs `Dn` to make sense, it is mechanism-level and belongs in `## 6.1 Evidence Required`, not here. Step 9a hard-fails on any forbidden token.
+**Hard rule** (`Derives from` allow-list, strict): the `Derives from` column may cite `Goal`, `An`, `Cn` — and **only** these. **`Mn` is FORBIDDEN here** (Milestone is schedule, not requirement; lives in §3.4). `Dn`, `En`, `Risk*`, `OpenQuestion*` are also forbidden (mechanism / verification / open question — downstream of requirement). AC describes WHAT the user receives at delivery, derivable from Goal+Assumptions+Constraints alone, before any decision OR schedule exists. Step 9a hard-fails on any forbidden token.
 
-**ID format guarantee**: `ACn` token must appear verbatim (regex `\bAC[1-9][0-9]*\b`) in three places — the `ID` column here, the `AC served` column in §5, the `AC verified` column in §6.1. Inconsistent spelling (`AC 1` vs `AC1`) is a Step 9a fail.
+**ID format guarantee**: `ACn` token must appear verbatim (regex `\bAC[1-9][0-9]*\b`) in four places — the `ID` column here, the `AC served` column in §5, the `AC verified` column in §6.1, and (if §3.4 exists) the `Delivers AC` column in §3.4 Milestones. Inconsistent spelling (`AC 1` vs `AC1`) is a Step 9a fail.
 
 | ID | Acceptance Criterion (outcome) | Derives from | Verified by | Milestone |
 | -- | ------------------------------ | ------------ | ----------- | --------- |
-| AC1 | MILES fullasync GRPO runs end-to-end under RLix scheduler (single pipeline) | `Goal`, `A1`, `M11.1` | `E3` | M11.1 |
+| AC1 | MILES fullasync GRPO runs end-to-end under RLix scheduler (single pipeline) | `Goal`, `A1` | `E3` | M11.1 |
 | AC2 | trajectory `weight_versions` consumable by `--max-weight-staleness` | `A8`, `C13` | `E5` | M11.1 |
 
 `Verified by` references `E` IDs in §6.1 and closes bidirectional traceability `AC ↔ E`.
+`Milestone` references `Mn` IDs in §3.4 (forward-ref; Milestone IDs are stable handles regardless of section order). This is the **scheduling join**, NOT the derivation — Mn is *when* AC ships, not *what* makes AC a requirement.
 
 ✅ outcome-level: user-visible at delivery (`AC1` above).
 ❌ mechanism-level: implementation detail (`per-bucket payload doesn't carry weight_version` — belongs in §6.1, not here).
+❌ schedule-level: "M11.1 ships on 2026-Q2" is not an AC — it's a milestone gate.
 
-If §3.3 is absent, use `Milestone = (none)` for all rows. If the plan is silent on user-visible outcomes, write `(plan does not declare outcome-level AC — see §7)` as a single placeholder row and surface as an `Intent` audit checkpoint demanding the human declare AC explicitly in the **plan** before shipping.
+If §3.4 is absent (plan has no milestones), use `Milestone = (none)` for all AC rows. If the plan is silent on user-visible outcomes, write `(plan does not declare outcome-level AC — see §7)` as a single placeholder row and surface as an `Intent` audit checkpoint demanding the human declare AC explicitly in the **plan** before shipping.
+
+#### 3.4 Milestones (conditional — SCHEDULE axis)
+
+Single canonical table for staged delivery, **organizing AC delivery into sign-off boundaries**. Other sections may cite milestone IDs but must not redefine them.
+
+| Milestone | Scope | Key deliverables | Delivers AC | Gates |
+| --------- | ----- | ---------------- | ----------- | ----- |
+| M11.1 | First build, single pipeline | F1–F12 happy path; cpu_serialize colocate; ... | `AC1 ∧ AC2 ∧ AC4 ∧ AC7 ∧ AC8` | Gate 1, 2, 2.5, 3 |
+| M11.2 | Dual-pipeline happy path | shell partial allocation; lazy ctor; ... | `AC9 ∧ AC10 ∧ AC11 ∧ AC12` | Gate 4 (c)+(d)+(e) |
+
+**`Delivers AC` column rule**: comma-separated `ACn` IDs (or `∧`-joined for narrative emphasis) referencing entries in §3.3. Every `ACn` cited must exist in §3.3 with the same `Mn` value in its `Milestone` column (bidirectional consistency; Step 9a verifies). This makes `Done(Mn) = AC<i> ∧ AC<j> ∧ ...` machine-checkable in the contract layer; Appendix E's Done lines are then a redundant convenience for grep / programmatic check.
+
+A milestone with empty `Delivers AC` is a label-without-obligations — Step 9a flags as audit gap. (Future-tagged milestones with no AC yet are OK if marked `(future)` in `Scope`; deliberate.)
+
+#### 3.5 Strategy Comparison (conditional)
+
+Side-by-side matrix when one decision has ≥3 named alternatives shipped under different conditions (transports, backends, algorithms). Strategy is **mechanism axis** — how each AC is delivered under different deployment conditions.
+
+| Alternative | When chosen | Trade-off | Status |
+| ----------- | ----------- | --------- | ------ |
 
 ### 4. Critical Views
 
@@ -696,7 +743,7 @@ The compact decision table should use:
 | Decision | Chosen | Depends On (Ctx / A / C / Dn) | AC served | Audit |
 | -------- | ------ | ----------------------------- | --------- | ----- |
 
-**Cite rule (HARD)**: every `Dn` row's `AC served` cell must contain ≥1 `ACn` token (verbatim, regex `\bAC[1-9][0-9]*\b`, comma-separated for multiple). A `Dn` with empty `AC served` is either undeclared-goal (add the missing AC to §3.5 first) or over-engineering (cut the decision). Step 9a hard-fails on any `Dn` with empty `AC served`.
+**Cite rule (HARD)**: every `Dn` row's `AC served` cell must contain ≥1 `ACn` token (verbatim, regex `\bAC[1-9][0-9]*\b`, comma-separated for multiple). A `Dn` with empty `AC served` is either undeclared-goal (add the missing AC to §3.3 first) or over-engineering (cut the decision). Step 9a hard-fails on any `Dn` with empty `AC served`.
 
 ### 6. Evidence & Stop Conditions (conditional)
 
@@ -716,7 +763,7 @@ This section is **decision-driven** — each row binds to a `D / A / C / M` ID a
 
 Number `E1, E2, E3, ...`. Reference the corresponding `D`, `A`, `C`, `M` IDs in `Binds to` so the citation grid stays connected. If a decision / constraint / assumption has no corresponding evidence in the plan, write `(plan does not define)` and surface it in `## 7 Audit Checkpoints`.
 
-**`AC verified` column**: comma-separated `ACn` tokens (verbatim, regex `\bAC[1-9][0-9]*\b`). Empty per row is fine — not every E binds to AC; some E rows verify mechanism-level decisions only (E2 above is mechanism-only). What is enforced is **aggregate coverage**: across all E rows in this table, every `ACn` declared in §3.5 must appear in ≥1 row's `AC verified` cell. Step 9a hard-fails if any AC is uncovered.
+**`AC verified` column**: comma-separated `ACn` tokens (verbatim, regex `\bAC[1-9][0-9]*\b`). Empty per row is fine — not every E binds to AC; some E rows verify mechanism-level decisions only (E2 above is mechanism-only). What is enforced is **aggregate coverage**: across all E rows in this table, every `ACn` declared in §3.3 must appear in ≥1 row's `AC verified` cell. Step 9a hard-fails if any AC is uncovered.
 
 #### 6.2 Stop Conditions (per plan)
 
@@ -745,10 +792,10 @@ Use this style:
 - [ ] **Intent**: scope boundary (3.1) excludes the right things; rejected alternatives are intentional.
 - [ ] **Intent**: D1 architecture insertion point matches the human's intended integration.
 - [ ] **Intent**: assumptions A1–An are ones the human is willing to bet on; `unverified` items are acceptable risks.
-- [ ] **Intent**: AC1–ACn (§3.5) cover what the human auditor expects to receive at each milestone — no missing user-visible outcomes.
+- [ ] **Intent**: AC1–ACn (§3.3) cover what the human auditor expects to receive at each milestone — no missing user-visible outcomes.
 - [ ] **Shippability**: hard constraints C1–Cn are present in the plan with enforcement points (the agent will encounter them).
-- [ ] **Shippability**: every `Dn` in §5 cites ≥1 `AC` in §3.5 (no orphan decisions; a `Dn` with no `AC` is either over-engineering or a hidden goal).
-- [ ] **Shippability**: every `AC` in §3.5 has at least one `D` citing it AND at least one `E` verifying it (no orphan promises, no unverifiable promises).
+- [ ] **Shippability**: every `Dn` in §5 cites ≥1 `AC` in §3.3 (no orphan decisions; a `Dn` with no `AC` is either over-engineering or a hidden goal).
+- [ ] **Shippability**: every `AC` in §3.3 has at least one `D` citing it AND at least one `E` verifying it (no orphan promises, no unverifiable promises).
 - [ ] **Shippability**: D2/D3/D4/D5 layers trace to parents in the plan; no orphan implementation details that an agent might invent freely.
 - [ ] **Shippability**: the plan defines stop conditions for the agent (`## 6.2` mirrors them); gaps surfaced here.
 - [ ] **Shippability**: the plan defines evidence / acceptance criteria (`## 6.1` mirrors them); gaps surfaced here.
@@ -835,7 +882,7 @@ Include:
 
 Stop Conditions are mandatory.
 
-**Done Criteria — leading machine-checkable line per milestone (mandatory)**: each milestone subsection must START with a single line of the form `Done(Mn) = AC<i> ∧ AC<j> ∧ ...` referencing the AC IDs from §3.5 that constitute "done" for that milestone. Existing prose (gates, deliverables, signoff narrative) follows the line for context. Each `ACn` referenced must exist in §3.5 with `Milestone = Mn` (or be explicitly cross-cut between milestones with a comment). Step 9a does not yet enforce Done-line vs §3.5 cross-cite, but the format is fixed so future regen runs and downstream tooling have a stable shape to parse.
+**Done Criteria — leading machine-checkable line per milestone (mandatory)**: each milestone subsection must START with a single line of the form `Done(Mn) = AC<i> ∧ AC<j> ∧ ...` referencing the AC IDs from §3.3 that constitute "done" for that milestone. Existing prose (gates, deliverables, signoff narrative) follows the line for context. Each `ACn` referenced must exist in §3.3 with `Milestone = Mn` (or be explicitly cross-cut between milestones with a comment). Step 9a does not yet enforce Done-line vs §3.3 cross-cite, but the format is fixed so future regen runs and downstream tooling have a stable shape to parse.
 
 Example:
 ```markdown
@@ -848,7 +895,7 @@ Example:
 <prose: M11.2 done = Gate 4 happy path (c)+(d)+(e) pass + ... >
 ```
 
-If the plan defines no milestones, use a single `### Done = AC1 ∧ AC2 ∧ ...` line at the top of Done Criteria. If §3.5 has only the placeholder row (`plan does not declare outcome-level AC`), write `### Done = (plan does not declare outcome-level AC — see §3.5 + §7)` and surface as an Intent audit checkpoint.
+If the plan defines no milestones, use a single `### Done = AC1 ∧ AC2 ∧ ...` line at the top of Done Criteria. If §3.3 has only the placeholder row (`plan does not declare outcome-level AC`), write `### Done = (plan does not declare outcome-level AC — see §3.3 + §7)` and surface as an Intent audit checkpoint.
 
 **Stop-condition voice (must match `## 6.2`).** Use *mirror* language consistently — `## 6.2` and Appendix E both describe what the *plan* tells the agent, not what tldr-plan tells the agent. Use the prefix `The plan instructs the agent to stop and ask if:` (or `The plan defines no stop conditions for ...`). Do NOT use `Stop and ask the user if:` (legacy template language) — it reads as a direct instruction to the agent and contradicts the single-reader rule.
 
@@ -881,7 +928,7 @@ Candidate sub-sections:
 - **Cross-cutting Role Matrix** — table when roles × paths form a meaningful grid (e.g. `tp_rank × transport_mask`, `phase × component`, `role × milestone`). Use a row per role, column per path.
 - **Expanded Topology Notes** — supplementary text for the Physical Topology View when ASCII art alone is insufficient.
 - **Expanded Strategy Comparison** — when `## 3.4 Strategy Comparison` is too compact to show implementation-level differences.
-- **Expanded Milestone Notes** — per-milestone scope expansions when `## 3.3 Milestones` rows are too short to capture key invariants.
+- **Expanded Milestone Notes** — per-milestone scope expansions when `## 3.4 Milestones` rows are too short to capture key invariants.
 
 ## Mermaid Rules
 
@@ -965,13 +1012,13 @@ Use `unanchored` when an implementation detail lacks a parent decision.
 
 | Kind | ID | Defined in | Used by |
 | ---- | -- | ---------- | ------- |
-| Assumption | `A1, A2, ...` | `## 2 Assumptions` | `## 3.5 AC`, `## 5 Decision Map`, `## 6 Evidence`, `## 7 Audit Checkpoints` |
-| Hard constraint | `C1, C2, ...` | `## 3.2 Hard Constraints` | `## 3.5 AC`, `## 5`, `## 6`, `## 7`, `Appendix C` |
+| Assumption | `A1, A2, ...` | `## 2 Assumptions` | `## 3.3 AC`, `## 5 Decision Map`, `## 6 Evidence`, `## 7 Audit Checkpoints` |
+| Hard constraint | `C1, C2, ...` | `## 3.2 Hard Constraints` | `## 3.3 AC`, `## 5`, `## 6`, `## 7`, `Appendix C` |
 | Fail-fast assert | `FF1, FF2, ...` | `## 3.2` (when distinguished from hard contract) | same as `C` |
-| Acceptance criterion | `AC1, AC2, ...` | `## 3.5 Acceptance Criteria` | `## 5` (AC served column), `## 6.1` (AC verified column), `## 7`, `Appendix E` (Done lines) |
+| Acceptance criterion | `AC1, AC2, ...` | `## 3.3 Acceptance Criteria` (REQUIREMENT axis) | `## 3.4` (Delivers AC column), `## 5` (AC served column), `## 6.1` (AC verified column), `## 7`, `Appendix E` (Done lines) |
+| Milestone | `M11.x / Phase N / vN` | `## 3.4 Milestones` (SCHEDULE axis) | `## 3.3 AC` (Milestone column, forward-ref), decision rows, evidence rows, audit checkpoints, Appendix E Done lines |
 | Decision | `D0..D6` | `## 5 Decision Map` | `## 6`, `## 7`, all appendices |
-| Milestone | `M11.x / Phase N / vN` | `## 3.3 Milestones` | `## 3.5 AC` (Milestone column), decision rows, evidence rows, audit checkpoints, Appendix E Done lines |
-| Evidence | `E1, E2, ...` | `## 6.1 Evidence Required` | `## 3.5 AC` (Verified by column), `## 7 Audit Checkpoints`, Appendix C cross-ref |
+| Evidence | `E1, E2, ...` | `## 6.1 Evidence Required` | `## 3.3 AC` (Verified by column), `## 7 Audit Checkpoints`, Appendix C cross-ref |
 
 Define each ID exactly once in its canonical table. Other sections cite by ID only — do not redefine the content.
 
@@ -986,15 +1033,16 @@ Unnumbered prose constraints decay; do not leave them only in prose.
 **Citation-grid integrity (no orphan IDs).** Every ID that appears in any canonical table MUST also appear in at least one cross-reference, AND every ID that appears in a *trace table* (Appendices A / C / D) MUST also appear in the corresponding *visible* table or diagram. Concrete checks:
 
 - For every row in `Appendix A: Full Decision Trace`, the decision ID MUST appear in `## 5 Decision Map` (both the DAG node *and* the compact decision table). If `Appendix A` lists `D3.F` but `## 5` only has `D3A..D3E`, the visible region is silently under-representing a decision the trace says exists. Either add the node to the DAG or remove it from the trace; never let them drift.
-- For every `ACn` in `## 3.5 Acceptance Criteria`, at least one `Dn` row in `## 5` MUST cite it in the `AC served` column AND at least one `En` row in `## 6.1` MUST cite it in the `AC verified` column (orphan AC = unfulfilled or unverifiable promise; Step 9a hard-fails). Conversely, every `Dn` row in `## 5` MUST cite ≥1 AC in its `AC served` cell (orphan decision = over-engineering or hidden goal).
+- For every `ACn` in `## 3.3 Acceptance Criteria`, at least one `Dn` row in `## 5` MUST cite it in the `AC served` column AND at least one `En` row in `## 6.1` MUST cite it in the `AC verified` column AND (if `## 3.4` exists) one `Mn` row MUST cite it in the `Delivers AC` column (orphan AC = unfulfilled / unverifiable / unscheduled promise; Step 9a hard-fails). Conversely, every `Dn` row in `## 5` MUST cite ≥1 AC in its `AC served` cell (orphan decision = over-engineering or hidden goal).
+- §3.3 `Derives from` column allow-list is **strict**: `Goal | An | Cn` only. **`Mn` is forbidden** (milestone is schedule, not requirement; lives in §3.4 with its own bidirectional join via `Delivers AC` ↔ `Milestone` columns). `Dn` / `En` / `Risk*` / `OpenQuestion*` also forbidden (downstream of requirement).
 - For every constraint `Cn` in `## 3.2`, at least one row in `Appendix C: Risk → Evidence Matrix` or `## 6.1 Evidence Required` should reference it (otherwise the constraint has no verification handle).
 - For every assumption `An` in `## 2`, at least one row in `## 6.2 Stop Conditions` or `## 7 Audit Checkpoints` should reference it (otherwise no one notices when the assumption fails).
 - For every evidence ID `En` in `## 6.1`, at least one checkpoint in `## 7` should reference it (otherwise the evidence has no audit handle).
-- For every milestone `M*` in `## 3.3`, at least one `ACn` row or decision row or evidence row should cite it (otherwise the milestone is a label without obligations). Appendix E `Done(M*)` lines must reference only `ACn` IDs that exist in `## 3.5`.
+- For every milestone `M*` in `## 3.4`, the `Delivers AC` column MUST contain ≥1 `ACn` token (a milestone with no AC is a label without obligations — Step 9a flags). Bidirectional consistency: each `ACn` in `Delivers AC` must exist in `## 3.3` with `Milestone = M*` matching the row. Appendix E `Done(M*)` lines must reference only `ACn` IDs that exist in `## 3.3`.
 
 Before declaring the document complete, do a final pass over each canonical table and grep the rest of the document for the IDs. Orphan IDs are the most common silent decay path.
 
-When the plan has milestone tags, **define them once** in the canonical `## 3.3 Milestones` table. Other sections (decision rows, evidence matrix, audit checkpoints) may cite milestone IDs but must not redefine the scope.
+When the plan has milestone tags, **define them once** in the canonical `## 3.4 Milestones` table. Other sections (decision rows, evidence matrix, audit checkpoints, AC's `Milestone` column at §3.3) may cite milestone IDs but must not redefine the scope.
 
 Do not:
 - approve the plan
