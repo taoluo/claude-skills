@@ -72,35 +72,50 @@ Also support:
 
 ## Output File
 
-Derive the output filename from the input plan filename so multiple plans
-in the same workspace don't collide and re-runs against the *same* plan
-overwrite cleanly.
+Co-locate the output with the source plan, named with a `tldr` suffix
+in the extension-style convention (mirrors `*.test.ts` / `*.spec.js`):
 
-**Naming rule**: `docs/tldr-<plan-stem>.md`
+**Naming rule**: `<plan-dir>/<plan-stem>.tldr.md`
 
-Where `<plan-stem>` is the basename of the input plan file with the `.md`
-suffix stripped. Examples:
+where `<plan-dir>` is `dirname(input plan path)` and `<plan-stem>` is
+`basename(input plan path)` with the trailing `.md` stripped.
 
 | Input plan path | Output |
 |---|---|
-| `plans/miles-port-unified-plan.md` | `docs/tldr-miles-port-unified-plan.md` |
-| `claude/plans/giggly-tumbling-cook.md` | `docs/tldr-giggly-tumbling-cook.md` |
-| `PLAN.md` | `docs/tldr-PLAN.md` |
-| `docs/proposal.md` | `docs/tldr-proposal.md` |
+| `plans/miles-port-unified-plan.md` | `plans/miles-port-unified-plan.tldr.md` |
+| `claude/plans/giggly-tumbling-cook.md` | `claude/plans/giggly-tumbling-cook.tldr.md` |
+| `docs/proposal.md` | `docs/proposal.tldr.md` |
+| `PLAN.md` (no dir prefix) | `PLAN.tldr.md` |
 
-**Iterative re-runs against the same plan overwrite the same output file**
-(intentional — the skill is designed to be re-run after each plan
-revision). Different plans in the same workspace get different outputs
-and never collide.
+Throughout this skill, `$OUT` denotes the derived output path and
+`$STEM` denotes `<plan-stem>.tldr` (the basename without `.md`).
+Substitute the actual derived values when running shell commands.
 
-**Fallback when no plan file is supplied** (`/tldr-plan`, `/tldr-plan current plan`,
-`/tldr-plan current diff` forms): use `docs/tldr-current-plan.md`.
+**Iterative re-runs against the SAME plan overwrite the same output
+file** (intentional — the skill is designed for plan-revise / skill-rerun
+loops). Different plans never collide because the stem differs.
 
-**Scratch dir for Mermaid validation** also uniques per output to avoid
-concurrent-run collision:
-`tmp/tldr-<plan-stem>-mermaid-check/`.
+**Edge cases**:
 
-If writing files is not available, print the full Markdown result in the chat.
+- Input plan stem already ends in `.tldr` (re-run on a TLDR by
+  accident) → refuse with error: "input appears to be an existing
+  TLDR; re-run the skill on the source plan instead." Do NOT silently
+  produce `<name>.tldr.tldr.md`.
+- Input plan path is read-only / outside the workspace tree (e.g.,
+  `external/<vendor>/.../PLAN.md`) → write to `./<plan-stem>.tldr.md`
+  in CWD with a console note explaining the relocation; user can move
+  it later.
+- No plan file supplied (`/tldr-plan`, `/tldr-plan current plan`,
+  `/tldr-plan current diff` forms) → fallback `./current-plan.tldr.md`
+  in CWD.
+
+**Scratch dir for Mermaid validation** keys off the stem (not the dir)
+to avoid concurrent-run collision: `tmp/<plan-stem>.tldr-mermaid-check/`.
+The `tmp/` dir lives at workspace root regardless of where the source
+plan sits.
+
+If writing files is not available, print the full Markdown result in
+the chat.
 
 ## Core Model
 
@@ -168,7 +183,7 @@ Extract in this order (do **not** start from diagrams):
 6. Mark low-level implementation details with no clear parent decision as `unanchored`.
 7. Generate a compact visible audit surface.
 8. Put full traceability in visible appendix sections.
-9. Write the result to `docs/tldr-<plan-stem>.md` (see `## Output File` for derivation rule). Throughout the rest of this skill, `$OUT` denotes that path; substitute the actual derived filename when running shell commands.
+9. Write the result to `<plan-dir>/<plan-stem>.tldr.md` (see `## Output File` for derivation rule, edge cases, and fallback). Throughout the rest of this skill, `$OUT` denotes that path and `$STEM` denotes `<plan-stem>.tldr`; substitute the actual derived values when running shell commands.
 9a. **Citation-grid integrity check (mandatory before mechanical validation).** Before running the Mermaid validator, audit the citation grid for orphan IDs and trace/visible drift. Programmatic check:
 
     ```bash
@@ -293,11 +308,11 @@ Extract in this order (do **not** start from diagrams):
     | Change `AC1` ID in §3.5 to `AC 1` (format inconsistent across tables) | 1 |
     | All four tables consistent, no orphans, no forbidden tokens | 0 |
 
-10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `$OUT` compiles (`$OUT` = the derived output path from Step 9; e.g., `docs/tldr-miles-port-unified-plan.md`). `$STEM` denotes the same value as `<plan-stem>` (e.g., `miles-port-unified-plan`). Eyeballing is not a substitute for the parser. Run:
+10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `$OUT` compiles (`$OUT` = the derived output path from Step 9; e.g., `plans/miles-port-unified-plan.tldr.md`). `$STEM` denotes `<plan-stem>.tldr` (e.g., `miles-port-unified-plan.tldr`). Eyeballing is not a substitute for the parser. Run:
 
     ```bash
-    OUT=docs/tldr-<plan-stem>.md       # substitute the actual derived path
-    STEM=tldr-<plan-stem>
+    OUT=<plan-dir>/<plan-stem>.tldr.md  # substitute the actual derived path
+    STEM=<plan-stem>.tldr               # used only for tmp scratch dir naming
     rm -rf "tmp/${STEM}-mermaid-check" && mkdir -p "tmp/${STEM}-mermaid-check"
     node -e 'const fs=require("fs"); const t=fs.readFileSync(process.env.OUT,"utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/${process.env.STEM}-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
     fail=0
