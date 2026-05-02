@@ -13,7 +13,7 @@ Code, then invoke with `/<name>` or have the model trigger it via the skill's
 
 | Skill | Description |
 |---|---|
-| [`plan-viz`](skills/plan-viz/SKILL.md) | Translate an implementation plan into a compact-first hierarchical decision visualization document with Mermaid diagrams, audit checkpoints, and execution anchors. Use after planning, before implementation. |
+| [`plan-audit-brief`](skills/plan-audit-brief/SKILL.md) | Translate an implementation plan into a compact, audit-ready brief for a human auditor — D0–D6 decision trace, audit checkpoints, execution anchors, and optional Mermaid diagrams (secondary). Use after planning, before agent handoff. |
 
 ## Repo layout
 
@@ -35,13 +35,13 @@ claude-skills/
 
 ```bash
 # user-level (available across all projects)
-cp -R skills/plan-viz ~/.claude/skills/
+cp -R skills/plan-audit-brief ~/.claude/skills/
 
 # project-level (scoped to one repo)
-cp -R skills/plan-viz <your-repo>/.claude/skills/
+cp -R skills/plan-audit-brief <your-repo>/.claude/skills/
 ```
 
-Then in Claude Code: `/plan-viz <plan-file-path>` (or let the model trigger it
+Then in Claude Code: `/plan-audit-brief <plan-file-path>` (or let the model trigger it
 based on the skill's `description`).
 
 ## License

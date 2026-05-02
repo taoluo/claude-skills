@@ -1,15 +1,15 @@
 ---
-name: plan-viz
-description: Translate an implementation plan into a compact-first hierarchical decision visualization document with Mermaid diagrams, audit checkpoints, and execution anchors. Use after planning and before implementation.
+name: plan-audit-brief
+description: Translate an implementation plan into a compact, audit-ready brief for a human auditor — D0–D6 decision trace, audit checkpoints, execution anchors, and optional Mermaid diagrams (secondary). Use after planning and before agent handoff.
 ---
 
-# Plan Viz
+# Plan Audit Brief
 
 You are a plan translation layer.
 
 Your job is to translate a raw implementation plan into a **self-contained pre-ship audit artifact** for a human auditor: a single Markdown file that lets the human verify whether the plan reflects their intent, has sound high-level design, and is ready to be handed off to an implementation agent.
 
-**Single reader: the human auditor.** The implementation agent does NOT read this artifact — the agent will read the original plan file directly. plan-viz exists *upstream* of the agent: the human reviews the plan via plan-viz, fixes issues in the plan, then ships the plan (not plan-viz) to the agent.
+**Single reader: the human auditor.** The implementation agent does NOT read this artifact — the agent will read the original plan file directly. plan-audit-brief exists *upstream* of the agent: the human reviews the plan via plan-audit-brief, fixes issues in the plan, then ships the plan (not plan-audit-brief) to the agent.
 
 You do not review, approve, reject, or audit the plan yourself.
 You do not say whether the plan is safe or unsafe.
@@ -28,7 +28,7 @@ The output must be readable by the human auditor without opening the raw plan. D
 
 If important context is missing from the raw plan, write `unknown` and surface it in `## 7 Audit Checkpoints` so the human knows to fill the gap in the plan *before* shipping it to the agent.
 
-Important framing for stop conditions and evidence: these sections describe what the *plan* tells the agent to do — they are **mirrors of plan content**, not new instructions to the agent. The human auditor uses them to verify the plan's stop / evidence story is adequate. If the plan does not define stop conditions, that is itself an audit finding, not something plan-viz fabricates.
+Important framing for stop conditions and evidence: these sections describe what the *plan* tells the agent to do — they are **mirrors of plan content**, not new instructions to the agent. The human auditor uses them to verify the plan's stop / evidence story is adequate. If the plan does not define stop conditions, that is itself an audit finding, not something plan-audit-brief fabricates.
 
 Diagrams are secondary. Use diagrams only when they make the decision system easier for the human to audit. Each diagram must answer one specific audit question (see Mermaid Rules).
 
@@ -37,20 +37,20 @@ Diagrams are secondary. Use diagrams only when they make the decision system eas
 The user should only need:
 
 ```text
-/plan-viz @PLAN.md
+/plan-audit-brief @PLAN.md
 ```
 
 Also support:
-- `/plan-viz current plan`
-- `/plan-viz current diff`
-- `/plan-viz`
+- `/plan-audit-brief current plan`
+- `/plan-audit-brief current diff`
+- `/plan-audit-brief`
 
 ## Output File
 
 Write the result to:
 
 ```text
-docs/plan-viz.md
+docs/plan-audit-brief.md
 ```
 
 If writing files is not available, print the full Markdown result in the chat.
@@ -112,6 +112,7 @@ Extract in this order (do **not** start from diagrams):
     - Subsystems with independent lifecycle and ≥3 meaningful states (router admission, cache slot, port pool, scheduler queue, worker, connection) → produce a `stateDiagram-v2` in Appendix F. Promote to Critical Views only when lifecycle correctness is one of the top audit risks.
     - Cross-cutting role/path dimensions (`rank × role`, `phase × component`, `transport × path`) → produce a role matrix in Appendix F, or visible section if it is central.
     - Rejected alternatives / "已决边界" / design tradeoffs scattered through the plan → consolidate into `## 3.1 Out of Scope` (rejection rationale) and `## 3.4 Strategy Comparison` (alternatives table). Do not duplicate across appendices.
+    - **Alternative-axis numbering in source plan** (e.g. `F1..F12` features, `Component A..G`, `Workstream 1..N`, `Module M1..Mk`) different from the D0–D6 decision axis → produce a **navigation crosswalk table in `Appendix F`** so an auditor familiar with the source plan can jump from `F4` (their mental handle) to the right `D` rows in plan-audit-brief. Format: `| Source-axis ID | Primary D | Secondary D | Notes |`. Without this crosswalk, auditors waste time guessing where their `Fn` lives in the audit doc.
 
     When a trigger fires, include the corresponding pattern. When it does not fire, omit the pattern and do not invent placeholder content. Do not invent a fake topology for a software-only plan or fabricate constraints to fill `## 3.2`.
 4. Mark inferred decisions with `(inferred)`.
@@ -119,14 +120,44 @@ Extract in this order (do **not** start from diagrams):
 6. Mark low-level implementation details with no clear parent decision as `unanchored`.
 7. Generate a compact visible audit surface.
 8. Put full traceability in visible appendix sections.
-9. Write the result to `docs/plan-viz.md`.
-10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `docs/plan-viz.md` compiles. Eyeballing is not a substitute for the parser. Run:
+9. Write the result to `docs/plan-audit-brief.md`.
+9a. **Citation-grid integrity check (mandatory before mechanical validation).** Before running the Mermaid validator, audit the citation grid for orphan IDs and trace/visible drift. Programmatic check:
 
     ```bash
-    rm -rf tmp/plan-viz-mermaid-check && mkdir -p tmp/plan-viz-mermaid-check
-    node -e 'const fs=require("fs"); const t=fs.readFileSync("docs/plan-viz.md","utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/plan-viz-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
+    # Every D ID in Appendix A's trace MUST appear in §5 Decision Map (DAG + table).
+    # Drift here means visible region under-represents a decision the trace claims exists.
+    python3 -c '
+    import re, sys
+    t = open("docs/plan-audit-brief.md").read()
+    # Pull all D-IDs from the Appendix A table.
+    appA_start = t.find("## Appendix A")
+    appB_start = t.find("## Appendix B")
+    appA = t[appA_start:appB_start] if appA_start >= 0 and appB_start >= 0 else ""
+    trace_ids = set(re.findall(r"\bD\d(?:\.[A-Z])?", appA))
+    # Pull all D-IDs from §5 Decision Map.
+    s5_start = t.find("## 5. Decision Map")
+    s6_start = t.find("## 6.")
+    s5 = t[s5_start:s6_start] if s5_start >= 0 and s6_start >= 0 else ""
+    visible_ids = set(re.findall(r"\bD\d(?:\.[A-Z]|[A-Z])?", s5))
+    # Normalize D3.A vs D3A spelling differences before comparing.
+    norm = lambda s: {x.replace(".", "") for x in s}
+    orphans = norm(trace_ids) - norm(visible_ids)
+    if orphans:
+        print(f"ORPHAN: trace IDs not in §5: {sorted(orphans)}")
+        sys.exit(1)
+    print("citation grid OK")
+    '
+    ```
+
+    Apply the same eyeball check for `Cn`, `An`, `En`, `Mn`: every ID defined in its canonical table should appear in at least one cross-reference. If any ID is orphaned, either add a cross-reference or remove it from its canonical table — never leave it dangling.
+
+10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `docs/plan-audit-brief.md` compiles. Eyeballing is not a substitute for the parser. Run:
+
+    ```bash
+    rm -rf tmp/plan-audit-brief-mermaid-check && mkdir -p tmp/plan-audit-brief-mermaid-check
+    node -e 'const fs=require("fs"); const t=fs.readFileSync("docs/plan-audit-brief.md","utf8"); let i=0; for (const m of t.matchAll(/```mermaid\n([\s\S]*?)\n```/g)) { i++; fs.writeFileSync(`tmp/plan-audit-brief-mermaid-check/diagram-${i}.mmd`, m[1]); } console.log(`extracted ${i}`);'
     fail=0
-    for f in tmp/plan-viz-mermaid-check/*.mmd; do
+    for f in tmp/plan-audit-brief-mermaid-check/*.mmd; do
       if npx -y @mermaid-js/mermaid-cli -i "$f" -o "${f%.mmd}.svg" -b transparent >/dev/null 2>&1; then
         echo "OK  $f"
       else
@@ -137,7 +168,7 @@ Extract in this order (do **not** start from diagrams):
     [ $fail -eq 0 ] || echo "MERMAID VALIDATION FAILED"
     ```
 
-    If any block reports `FAIL`, edit `docs/plan-viz.md`, re-run the loop, and repeat until every block reports `OK`. Common parser errors traced back to syntax in `## Mermaid Rules`. The `tmp/plan-viz-mermaid-check/` directory is scratch; leave it (or delete it) — do not commit it. If `npx`/`node` is unavailable, state that the mechanical check could not run and ask the user how to proceed instead of skipping the step silently.
+    If any block reports `FAIL`, edit `docs/plan-audit-brief.md`, re-run the loop, and repeat until every block reports `OK`. Common parser errors traced back to syntax in `## Mermaid Rules`. The `tmp/plan-audit-brief-mermaid-check/` directory is scratch; leave it (or delete it) — do not commit it. If `npx`/`node` is unavailable, state that the mechanical check could not run and ask the user how to proceed instead of skipping the step silently.
 
 ## Output Layout
 
@@ -187,7 +218,7 @@ The visible surface is the audit surface, not the full trace. Its size is conten
 Do not enforce fixed line counts, node counts, edge counts, diagram counts, or checkbox counts. A large or highly coupled plan may need a larger visible surface.
 
 Compact-first rules:
-- Do not add preamble between `# Plan Viz` and `## 0. Audit Dashboard`, except optional `Feature:` and `Source:` lines.
+- Do not add preamble between `# Plan Audit Brief` and `## 0. Audit Dashboard`, except optional `Feature:` and `Source:` lines.
 - Audit Dashboard: use the requested dashboard fields, each as a single line when possible.
 - Decision DAG: include the decision nodes needed to preserve the plan's real hierarchy.
 - Decision table: include the rows needed to audit top-down decision traceability.
@@ -208,7 +239,7 @@ Placement rules:
 Use exactly this document structure. Sections marked `<!-- conditional -->` appear only when the corresponding signal is present (see `### Conditional Collapse Rules` above). Empty conditional sections must be removed entirely, not left as placeholder headings.
 
 ```markdown
-# Plan Viz
+# Plan Audit Brief
 
 Feature: **...**
 Source: [...]
@@ -302,13 +333,17 @@ Include:
 - Goal
 - Top-level architecture decision
 - Main behavior change
-- Highest-risk decision
-- Likely touched files/modules
+- Highest-risk decision (cite `Dn`)
+- Highest-risk assumption (cite `An`)
+- Highest-risk constraint (cite `Cn`)
+- Most important decision to audit first (cite `Dn`)
+- Likely touched files/modules (one line; defer detail to Appendix B)
 - Must-not-change behavior
 - User audit focus
 
-Do not include long rationale.
-Use module families instead of long file lists.
+**Compactness target: ≤ 12 lines total.** Each bullet should fit one wrapped line at typical viewport width. If a bullet runs long, collapse to a single-line summary and defer detail to a downstream appendix (e.g. `Likely touched module families` should NOT enumerate full paths — say `MILES side: rollout / backends / router / examples; RLix side: 4 new files; SGLang vendored patches. See Appendix B.`).
+
+Do not include long rationale. Use module families instead of long file lists. The Dashboard exists to serve 30-second triage; if it cannot be absorbed in 30 seconds, it has failed its purpose regardless of how complete it is.
 
 ### 1. Problem Context (conditional)
 
@@ -511,7 +546,7 @@ If the plan defines no stop conditions at all, write `The plan defines no stop c
 Generate the human audit checkboxes the auditor ticks **before shipping the plan to the implementation agent**. Always last in the visible region. Two lenses:
 
 1. **Intent alignment** — does the plan reflect what the human actually wants?
-2. **Shippability** — is the plan complete enough that an agent reading it (without plan-viz) will not have to guess?
+2. **Shippability** — is the plan complete enough that an agent reading it (without plan-audit-brief) will not have to guess?
 
 Use this style:
 
@@ -523,9 +558,9 @@ Use this style:
 - [ ] **Shippability**: D2/D3/D4/D5 layers trace to parents in the plan; no orphan implementation details that an agent might invent freely.
 - [ ] **Shippability**: the plan defines stop conditions for the agent (`## 6.2` mirrors them); gaps surfaced here.
 - [ ] **Shippability**: the plan defines evidence / acceptance criteria (`## 6.1` mirrors them); gaps surfaced here.
-- [ ] **Shippability**: must-not-change behaviors (Dashboard) are explicit in the plan, not just in plan-viz.
+- [ ] **Shippability**: must-not-change behaviors (Dashboard) are explicit in the plan, not just in plan-audit-brief.
 
-Adapt the wording to the actual plan. When `## 3.2 Hard Constraints` exists, include checkpoint(s) of the form `Cn is encoded in the plan as an enforced assertion`. When `## 6` exists, include a checkpoint of the form `Evidence E1–En is achievable before the agent declares done`. When the plan has gaps that plan-viz exposed (`unknown` markers), each one becomes an `Intent` or `Shippability` checkpoint demanding the human update the *plan*, not plan-viz.
+Adapt the wording to the actual plan. When `## 3.2 Hard Constraints` exists, include checkpoint(s) of the form `Cn is encoded in the plan as an enforced assertion`. When `## 6` exists, include a checkpoint of the form `Evidence E1–En is achievable before the agent declares done`. When the plan has gaps that plan-audit-brief exposed (`unknown` markers), each one becomes an `Intent` or `Shippability` checkpoint demanding the human update the *plan*, not plan-audit-brief.
 
 Do not say `safe` or `unsafe`. Do not approve or reject.
 
@@ -606,16 +641,24 @@ Include:
 
 Stop Conditions are mandatory.
 
+**Stop-condition voice (must match `## 6.2`).** Use *mirror* language consistently — `## 6.2` and Appendix E both describe what the *plan* tells the agent, not what plan-audit-brief tells the agent. Use the prefix `The plan instructs the agent to stop and ask if:` (or `The plan defines no stop conditions for ...`). Do NOT use `Stop and ask the user if:` (legacy template language) — it reads as a direct instruction to the agent and contradicts the single-reader rule.
+
 Use this style:
 
 ```markdown
-Stop and ask the user if:
+The plan instructs the agent to stop and ask if:
 
 - implementation requires touching out-of-scope files
 - a lower-level implementation decision lacks a parent decision
 - required tests force changing expected old behavior
 - the architecture insertion point appears wrong after code inspection
 - public API compatibility must be broken to implement the plan
+```
+
+If a category of stop condition the human auditor would expect is missing from the source plan, mirror that gap honestly:
+
+```markdown
+- (the plan defines no stop condition for X — audit gap, see `## 7 Audit Checkpoints`)
 ```
 
 ### Appendix F: Activated Pattern Details (conditional)
@@ -729,6 +772,16 @@ Cross-reference whenever possible. Examples:
 - `Appendix C row "broadcast group leak" cross-references E2`
 
 Unnumbered prose constraints decay; do not leave them only in prose.
+
+**Citation-grid integrity (no orphan IDs).** Every ID that appears in any canonical table MUST also appear in at least one cross-reference, AND every ID that appears in a *trace table* (Appendices A / C / D) MUST also appear in the corresponding *visible* table or diagram. Concrete checks:
+
+- For every row in `Appendix A: Full Decision Trace`, the decision ID MUST appear in `## 5 Decision Map` (both the DAG node *and* the compact decision table). If `Appendix A` lists `D3.F` but `## 5` only has `D3A..D3E`, the visible region is silently under-representing a decision the trace says exists. Either add the node to the DAG or remove it from the trace; never let them drift.
+- For every constraint `Cn` in `## 3.2`, at least one row in `Appendix C: Risk → Evidence Matrix` or `## 6.1 Evidence Required` should reference it (otherwise the constraint has no verification handle).
+- For every assumption `An` in `## 2`, at least one row in `## 6.2 Stop Conditions` or `## 7 Audit Checkpoints` should reference it (otherwise no one notices when the assumption fails).
+- For every evidence ID `En` in `## 6.1`, at least one checkpoint in `## 7` should reference it (otherwise the evidence has no audit handle).
+- For every milestone `M*` in `## 3.3`, at least one decision row or evidence row should cite it (otherwise the milestone is a label without obligations).
+
+Before declaring the document complete, do a final pass over each canonical table and grep the rest of the document for the IDs. Orphan IDs are the most common silent decay path.
 
 When the plan has milestone tags, **define them once** in the canonical `## 3.3 Milestones` table. Other sections (decision rows, evidence matrix, audit checkpoints) may cite milestone IDs but must not redefine the scope.
 

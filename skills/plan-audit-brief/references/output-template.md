@@ -1,6 +1,6 @@
-# Plan Viz Output Template
+# Plan Audit Brief Output Template
 
-# Plan Viz
+# Plan Audit Brief
 
 Feature: **...**
 Source: [...]

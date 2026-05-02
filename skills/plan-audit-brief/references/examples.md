@@ -1,4 +1,4 @@
-# Plan Viz Examples
+# Plan Audit Brief Examples
 
 ## Example Input
 
@@ -19,7 +19,7 @@ Proposed behavior:
 
 ## Example Output Snippet
 
-# Plan Viz
+# Plan Audit Brief
 
 ## 0. Audit Dashboard
 
