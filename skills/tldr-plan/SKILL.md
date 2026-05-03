@@ -230,6 +230,9 @@ Extract in this order (do **not** start from diagrams):
     s33 = slice_section("### 3.3 Acceptance", "### 3.4")  # AC at §3.3 (REQUIREMENT axis)
     if not s33:
         s33 = slice_section("## 3.3 Acceptance", "## 3.4")
+    s34 = slice_section("### 3.4 Milestones", "### 3.5")  # Milestones at §3.4 (SCHEDULE axis)
+    if not s34:
+        s34 = slice_section("## 3.4 Milestones", "## 3.5")
     s5  = slice_section("## 5. Decision Map", "## 6.")
     s61 = slice_section("#### 6.1", "#### 6.2")
     if not s61:
@@ -286,6 +289,56 @@ Extract in this order (do **not** start from diagrams):
         if len(cells) < 6: continue
         ac_covered_by_e |= set(re.findall(AC_TOKEN, cells[3]))
 
+    # 5. §3.3 AC.Milestone column → expected §3.4 schedule
+    # Build: ac_to_milestone[ACn] = Mn  (from §3.3 Milestone column)
+    ac_to_milestone = {}
+    for line in s33.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        # | ID | Outcome | Derives | Verified | Milestone |
+        if len(cells) >= 7 and re.match(r"AC[1-9][0-9]*", cells[1]):
+            ac_id = cells[1]
+            ms = cells[5]
+            # extract first M-token from cell (or "(none)" / empty)
+            mm = re.search(r"M\S+", ms)
+            ac_to_milestone[ac_id] = mm.group(0) if mm else None
+
+    # 6. §3.4 Milestones table: every milestone row must have ≥1 AC in `Delivers AC`;
+    # tokens ⊆ ac_defined; bidirectional consistency with §3.3.Milestone column.
+    milestones_in_34 = []                # list of (Mn, set_of_ACn_in_DeliversAC)
+    m_without_ac = []
+    delivers_ac_unknown_tokens = []      # (Mn, AC_token) tuples for tokens not in ac_defined
+    for line in s34.splitlines():
+        cells = [c.strip() for c in line.split("|")]
+        # | Milestone | Scope | Key deliverables | Delivers AC | Gates |
+        if len(cells) < 7: continue
+        m_match = re.match(r"M\S+", cells[1])
+        if not m_match: continue
+        m_id = m_match.group(0)
+        delivers = cells[4]
+        toks = set(re.findall(AC_TOKEN, delivers))
+        # explicit "(future)" / "(deferred)" markers in Scope cell exempt the row
+        scope_cell = cells[2]
+        is_future = bool(re.search(r"\(future\)|\(deferred\)", scope_cell, re.IGNORECASE))
+        if not toks and not is_future:
+            m_without_ac.append(m_id)
+        unknown = toks - ac_defined
+        for tok in sorted(unknown):
+            delivers_ac_unknown_tokens.append((m_id, tok))
+        milestones_in_34.append((m_id, toks))
+
+    # 7. Bidirectional consistency: §3.3.Milestone(ACn) == Mn iff ACn in §3.4.DeliversAC(Mn)
+    bidir_mismatches = []  # list of (ACn, expected_Mn_from_§3.3, actual_Mns_listing_in_§3.4)
+    for ac_id, expected_m in ac_to_milestone.items():
+        # Find all milestones in §3.4 that list this AC
+        listing = [m_id for (m_id, toks) in milestones_in_34 if ac_id in toks]
+        if expected_m is None:
+            # §3.3 says (none) — §3.4 should also have no milestone listing this AC
+            if listing:
+                bidir_mismatches.append((ac_id, "(none)", listing))
+        else:
+            if listing != [expected_m]:
+                bidir_mismatches.append((ac_id, expected_m, listing))
+
     # Report + fail
     fail = False
     orphans_d = ac_defined - ac_cited_by_d
@@ -294,10 +347,24 @@ Extract in this order (do **not** start from diagrams):
     orphans_e = ac_defined - ac_covered_by_e
     if orphans_e:
         print(f"FAIL: AC not covered by any En (unverifiable promises): {sorted(orphans_e)}"); fail = True
+    # NEW: subset checks — D and E rows must not cite tokens that aren't defined in §3.3
+    unknown_in_d = ac_cited_by_d - ac_defined
+    if unknown_in_d:
+        print(f"FAIL: §5 AC-served cites tokens NOT defined in §3.3: {sorted(unknown_in_d)}"); fail = True
+    unknown_in_e = ac_covered_by_e - ac_defined
+    if unknown_in_e:
+        print(f"FAIL: §6.1 AC-verified cites tokens NOT defined in §3.3: {sorted(unknown_in_e)}"); fail = True
     if d_without_ac:
         print(f"FAIL: Dn rows with empty AC served (orphan decisions): {sorted(d_without_ac)}"); fail = True
     if forbidden_in_derives:
         print(f"FAIL: §3.3 Derives-from has forbidden tokens (allow-list = Goal | An | Cn ONLY; Mn is schedule, lives in §3.4): {forbidden_in_derives}"); fail = True
+    # NEW: §3.4 schedule-axis checks
+    if m_without_ac:
+        print(f"FAIL: §3.4 Milestone rows with empty Delivers AC (label-without-obligations; mark Scope (future) to exempt): {sorted(m_without_ac)}"); fail = True
+    if delivers_ac_unknown_tokens:
+        print(f"FAIL: §3.4 Delivers-AC cites tokens NOT defined in §3.3: {delivers_ac_unknown_tokens}"); fail = True
+    if bidir_mismatches:
+        print(f"FAIL: §3.3.Milestone ↔ §3.4.Delivers-AC inconsistent (AC, expected_M_from_§3.3, found_in_§3.4): {bidir_mismatches}"); fail = True
     sys.exit(1 if fail else 0)
     print("AC integrity OK")
     '
@@ -309,10 +376,16 @@ Extract in this order (do **not** start from diagrams):
     |---|---|
     | Remove the only `AC1` from §5 `AC served` (D1 has no AC) | 1 |
     | Remove the only `AC1` from §6.1 `AC verified` (AC uncovered) | 1 |
+    | `D1.AC served` = `AC999` (cites token not defined in §3.3) | 1 |
+    | `E1.AC verified` = `AC999` (cites token not defined in §3.3) | 1 |
     | Change §3.3 `Derives from` to `Goal, D1` (forbidden — Dn is mechanism) | 1 |
     | Change §3.3 `Derives from` to `Goal, M11.1` (forbidden — Mn is schedule, not requirement) | 1 |
     | Change `AC1` ID in §3.3 to `AC 1` (format inconsistent across tables) | 1 |
-    | All four tables consistent, no orphans, no forbidden tokens | 0 |
+    | §3.4 Milestone row `M11.1.Delivers AC` empty AND `Scope` not marked `(future)` (label-without-obligations) | 1 |
+    | §3.4 `M11.1.Delivers AC` cites `AC999` (token not in §3.3) | 1 |
+    | §3.3 `AC1.Milestone = M11.1` but §3.4 `M11.1.Delivers AC` does NOT include `AC1` (bidir mismatch) | 1 |
+    | §3.4 `M11.1.Delivers AC` includes `AC1` but §3.3 `AC1.Milestone = M11.2` (bidir mismatch) | 1 |
+    | All consistent, no orphans, no forbidden tokens, bidir matches | 0 |
 
 10. **Mechanical Mermaid validation (mandatory before finishing).** Do not declare the file complete until every Mermaid block in `$OUT` compiles (`$OUT` = the derived output path from Step 9; e.g., `plans/miles-port-unified-plan.tldr.md`). `$STEM` denotes `<plan-stem>.tldr` (e.g., `miles-port-unified-plan.tldr`). Eyeballing is not a substitute for the parser. Run:
 
@@ -441,7 +514,7 @@ Source: [...]
 <!-- organize when AC ship. Strategy Comparison (mechanism alternatives) comes after -->
 <!-- both because it serves AC under different deployment conditions. AC > Milestone -->
 <!-- > Strategy in importance. -->
-<!-- "Derives from" column may only cite §0–§3 IDs (Goal, A, C, M); never cite Dn here -->
+<!-- §3.3 "Derives from" allow-list: Goal | An | Cn ONLY (no Mn — milestone is schedule, not requirement); never cite Dn here -->
 
 ## 4. Critical Views
 
@@ -927,7 +1000,7 @@ Candidate sub-sections:
 - **Sub-system State Machine** — `stateDiagram-v2` for any subsystem with ≥3 meaningful states and independent lifecycle (router admission, cache slot, port pool, scheduler queue, worker, connection). Skip 2-state on/off.
 - **Cross-cutting Role Matrix** — table when roles × paths form a meaningful grid (e.g. `tp_rank × transport_mask`, `phase × component`, `role × milestone`). Use a row per role, column per path.
 - **Expanded Topology Notes** — supplementary text for the Physical Topology View when ASCII art alone is insufficient.
-- **Expanded Strategy Comparison** — when `## 3.4 Strategy Comparison` is too compact to show implementation-level differences.
+- **Expanded Strategy Comparison** — when `## 3.5 Strategy Comparison` is too compact to show implementation-level differences.
 - **Expanded Milestone Notes** — per-milestone scope expansions when `## 3.4 Milestones` rows are too short to capture key invariants.
 
 ## Mermaid Rules
