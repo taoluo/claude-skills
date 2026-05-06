@@ -1,17 +1,17 @@
 ---
 name: code-review-plan
-description: Creates a parallelizable code-review workplan from a source plan plus TLDR, scope, and debug artifacts. Use after implementation and smoke-test debugging to identify review shards, review angles, adversarial prompts, subagent assignments, and final aggregation requirements.
+description: Creates a parallelizable code-review workplan from a source plan. Optional sibling artifacts (TLDR, scope, debug log) and code-diff hints sharpen the workplan but are not required. Use whenever a planned change has reached a state worth reviewing — pre- or post-smoke — to identify review shards, review angles, adversarial prompts, subagent assignments, and final aggregation requirements.
 ---
 
 # Code Review Plan
 
-> **Phase-transition tool. Runs after implementation finishes and end-to-end tests pass. Generates a parallelizable code-review brief — bounded shards, controlled review angles, adversarial prompts, subagent assignments, fixed report contract, aggregation contract. Does NOT review code itself; the reviewer fleet (humans or AI subagents) does that, and a human aggregator (or future `review-report` skill) merges their findings.**
+> **Review-work planner. Generates a parallelizable code-review brief — bounded shards, controlled review angles, adversarial prompts, subagent assignments, fixed report contract, aggregation contract. Does NOT review code itself; the reviewer fleet (humans or AI subagents) does that, and a human aggregator (or future `review-report` skill) merges their findings.**
 
 ## What this is
 
 `code-review-plan` is a review work *planner*, not a code reviewer. It generates bounded shards, controlled review angles, adversarial prompts, subagent instructions, and a final aggregation contract. Designed for parallel AI or human review.
 
-**Required inputs**: `PLAN.md` (to draft the workplan) and the code diff / changed-file list (to *execute* the workplan). The skill always emits a workplan when at least `PLAN.md` is resolvable; the Review Dashboard reports `Review readiness:` (`READY` / `NEEDS_INPUT` / `BLOCKED`) and lists specific `Blocking issues` / `Warnings` so the human can decide whether to proceed. A workplan with `BLOCKED` readiness is still useful as a scaffold/preview; reviewers must not begin work until the dashboard is `READY`.
+**Required input**: `PLAN.md` only. Everything else — code diff / changed-file list, sibling `.tldr.md` / `.scope.md` / `.debug.md` artifacts, smoke-test evidence — is **optional**. When optional inputs are missing the skill records a Warning, sharpens what shards it can from `PLAN.md` content, and marks shards that needed the missing input with `Code areas: unknown` / `Bug history: not available`. The Review Dashboard reports `Review readiness:` (`READY` / `NEEDS_INPUT` / `BLOCKED`); the only hard `BLOCKED` cause is `PLAN.md` itself missing.
 
 ## What this is NOT
 
@@ -19,33 +19,31 @@ description: Creates a parallelizable code-review workplan from a source plan pl
 - **Not a workflow / orchestration engine.** Only 3 readiness values; specific concerns live in plain natural-language `Blocking issues:` / `Warnings:` lists, not in a sprawling state machine.
 - **Not a CLI tool.** No `--force-review` flag; the user's free-text invocation note is the only override channel, and it lands as a recorded warning rather than a magic state transition.
 - **Not a final review report generator.** v1 emits the aggregation contract only; the actual final report is a downstream artifact produced by a human or future `review-report` skill.
-- **Not a debugger.** If end-to-end tests are still failing, finish `debug-log` first.
 
 ## Relationship to sibling skills
 
 - `tldr-plan` — makes the source plan auditable (audit projection).
 - `scope-triage` — makes the implementation boundary reviewable (boundary projection).
 - `debug-log` — records execution-time bugs / fixes / verification (append-only).
-- `code-review-plan` — turns the sibling artifacts above plus the code diff into a parallelizable review workplan.
+- `code-review-plan` — consumes any combination of the artifacts above plus an optional code diff and produces a parallelizable review workplan.
 
-Workflow position: after implementation + `debug-log`, before parallel review fleet. The source plan stays authoritative — `code-review-plan` consumes the four artifacts but never edits any of them.
+Workflow position: after `PLAN.md` exists. The other artifacts are *recommended* (a workplan with TLDR + scope + debug + code diff is sharper than one drawn from `PLAN.md` alone), but **not required**. The source plan stays authoritative — `code-review-plan` reads the inputs but never edits any of them.
 
 ## When not to use
 
-- Pre-implementation work (use `tldr-plan` / `scope-triage` instead).
-- Smoke / integration / E2E tests are not yet passing end-to-end (finish `debug-log` first).
+- `PLAN.md` does not yet exist (write the plan first).
 - You only want to record one new bug (use `debug-log`).
 - You want the actual review done (this skill *plans* the review; reviewers execute it).
 
 ## Phase position and preconditions
 
 ```text
-PLAN.md
-  → tldr-plan / scope-triage         (pre-implementation)
-  → implementation
-  → debug-log                        (debug phase: "does it work?")
-  → smoke / integration / E2E tests pass end-to-end
-  → code-review-plan                 (review phase: "is it good?")  ← we are here
+PLAN.md                                ← only hard input
+  ± tldr-plan / scope-triage           (pre-implementation, sharpens the workplan)
+  ± implementation                      (sharpens shards via code diff)
+  ± debug-log                           (debug phase, sharpens recurrence-risk shards)
+  ± smoke / integration / E2E tests    (sharpens TEST_EVIDENCE_REVIEW shards)
+  → code-review-plan                   (this skill — runs whenever a review brief is wanted)
   → parallel review fleet
   → review-report (future skill) or human aggregator
   → ship
@@ -53,11 +51,10 @@ PLAN.md
 
 `code-review-plan` assumes:
 
-- **Implementation is complete** for the scope being reviewed.
-- **Smoke / integration / E2E tests pass end-to-end** at the time of invocation. Evidence can come from any of three sources: `debug-log` header `Current status: PASSING`, an invocation free-text note with CI / test output, or an explicit user assertion in the invocation note.
-- **`debug-log` has captured the bug-fix history** for this scope. Reviewers will use that history to drive recurrence-risk shards (`DEBUG_REGRESSION_REVIEW`).
+- **`PLAN.md` is resolvable.** Everything else is optional and recorded as Warning when absent.
+- **The reviewer fleet will exercise judgment** about whether a given shard's evidence is strong enough to ship. Missing optional inputs reduce shard sharpness but do not prevent a workplan from being generated.
 
-If preconditions fail, the skill emits the workplan with `Review readiness: BLOCKED` and lists the specific issue (e.g., `tests-passing evidence missing`) in §0 `Blocking issues`. There is no `--force-review` override flag — a human who decides to proceed anyway can read the dashboard, accept the risk, and continue; the artifact does not pretend the situation is clean.
+If `PLAN.md` is missing, the skill emits an empty scaffold with `Review readiness: BLOCKED` and `source plan missing` in `Blocking issues`. Any other absence is at most a `NEEDS_INPUT` (and usually just a `Warnings:` entry on a `READY` workplan).
 
 ## Source-of-truth rule
 
@@ -118,13 +115,13 @@ Deliberately compact — only one short readiness enum at the top level; everyth
 
 ### Review readiness (3 values)
 
-- `READY` — all required inputs present and acceptable; reviewer fleet may launch. **`READY` means launchable, not warning-free** — `Warnings:` may still contain advisory entries (mtime mismatches, optional-artifact-missing, recorded human override rationale). Warnings are advisory; they do not block launch.
-- `NEEDS_INPUT` — workplan generated, but the human should resolve at least one item before launching the fleet. The workplan is complete enough to inspect, but the human should resolve the listed input before launching the review fleet unless they explicitly accept the risk.
-- `BLOCKED` — one or more hard requirements missing; reviewer fleet must not launch. Common causes: source plan missing, code diff missing, no tests-passing evidence, unresolved `PROPOSED` plan revision in `debug-log`. The workplan is still emitted as a scaffold so the human can preview the planned shape.
+- `READY` — `PLAN.md` is resolvable and no `tier: blocking` author-clarification question is open; reviewer fleet may launch. **`READY` means launchable, not warning-free** — `Warnings:` may still contain advisory entries (missing optional artifacts, missing code diff, missing tests-passing evidence, mtime mismatches, recorded human override rationale). Warnings are advisory; they do not block launch.
+- `NEEDS_INPUT` — workplan generated, but at least one `tier: blocking` author-clarification question is open. The workplan is complete enough to inspect, but the human should answer the question before launching the review fleet unless they explicitly accept the risk.
+- `BLOCKED` — `PLAN.md` is missing or unreadable. **This is the only `BLOCKED` cause.** The workplan is still emitted as a scaffold (mostly empty) so the human can preview the planned shape and supply the missing source plan.
 
 ### Blocking issues / Warnings (free-text bulleted lists in §0, not enums)
 
-These explain *why* readiness is `BLOCKED` or `NEEDS_INPUT`. Sample blocking-issue strings: `code diff missing`, `tests-passing evidence missing`, `debug-log REV-002 PROPOSED but not yet applied to PLAN.md`, `source plan missing`. Sample warnings: `.tldr.md mtime predates PLAN.md by 3 days; rerun tldr-plan if source plan changed semantically`, `.scope.md missing (optional but recommended)`, `human override rationale recorded: "external reviewer requested mid-debug look"`.
+These explain *why* readiness is `BLOCKED` or what advisory state the workplan is in. The only sample blocking-issue string is `source plan missing` (or `source plan unreadable: <reason>`). Sample warnings: `code diff / changed files not supplied — shards mark Code areas as unknown`, `tests-passing evidence missing — TEST_EVIDENCE_REVIEW shards depend on smoke evidence the reviewer must supply at exec time`, `.tldr.md mtime predates PLAN.md by 3 days; rerun tldr-plan if source plan changed semantically`, `.scope.md missing (optional but recommended)`, `.debug.md missing — recurrence-risk shards reconstruct bug history from git log`, `debug-log REV-002 PROPOSED but not yet applied to PLAN.md`, `human override rationale recorded: "external reviewer requested mid-debug look"`.
 
 The skill records whatever rationale the human supplied verbatim — there is no fixed `force review:` prefix; that would amount to a hidden flag.
 
@@ -132,31 +129,31 @@ The skill records whatever rationale the human supplied verbatim — there is no
 
 `present-current`, `present-stale-suspected` (mtime mismatch — heuristic only, recorded as a Warning, never a Blocking issue), `missing`, `unknown`.
 
-### Tests-passing evidence sources
+### Tests-passing evidence sources (optional)
 
-Accept any of three; record which one was used in §0:
+If supplied, record which one was used in §0:
 
 1. `<plan-stem>.debug.md` header `Current status: PASSING`.
 2. User-supplied test output / CI summary in the invocation free-text note.
 3. User assertion in the invocation note (e.g., `"tests passing as of abc123: pytest tests/router -q"`).
 
-If none are present, add `tests-passing evidence missing` to §0 `Blocking issues` and set `Review readiness: BLOCKED`.
+If none are present, record `tests-passing evidence missing` as a §0 `Warning` (NOT a Blocking issue). The workplan still ships at `READY`. `TEST_EVIDENCE_REVIEW`-axis shards add a note that the reviewer must supply or skip the evidence at execution time.
 
 ### Readiness decision table (single source of truth)
 
 | Condition | Effect on readiness |
 |---|---|
-| Source plan missing | `BLOCKED` |
-| Code diff / changed files missing | `BLOCKED` (workplan still emitted as scaffold; §4 shards have `Code areas: unknown`; §6 rows `BLOCKED — awaiting code diff`) |
-| No tests-passing evidence | `BLOCKED` |
-| `debug-log` has `PROPOSED` plan revision implicating `PLAN.md` | `BLOCKED` |
+| `PLAN.md` missing or unreadable | `BLOCKED` (only `BLOCKED` cause) |
 | At least one `tier: blocking` author-clarification question | `NEEDS_INPUT` (workplan still ships; human answers in chat or patches source artifacts and reruns) |
-| Optional sibling artifact missing | `NEEDS_INPUT` (warning in §0) |
-| mtime mismatch on a sibling artifact | `NEEDS_INPUT` (warning in §0; heuristic only) |
-| Free-text override rationale present in invocation note | Recorded as a §0 `Warnings:` entry; **never overrides Blocking issues**. Readiness is still determined by the rest of this table. |
+| Code diff / changed files not supplied | Warning in §0 (`Code areas: unknown` on affected shards); does NOT change readiness |
+| No tests-passing evidence | Warning in §0; does NOT change readiness |
+| `debug-log` has `PROPOSED` plan revision implicating `PLAN.md` | Warning in §0 + suggest the human resolve before launch; does NOT change readiness |
+| Optional sibling artifact (`.tldr.md` / `.scope.md` / `.debug.md`) missing | Warning in §0; does NOT change readiness |
+| mtime mismatch on a sibling artifact | Warning in §0 (heuristic only); does NOT change readiness |
+| Free-text override rationale present in invocation note | Recorded as a §0 `Warnings:` entry; never demotes `BLOCKED` |
 | Otherwise | `READY` |
 
-`BLOCKED` dominates `NEEDS_INPUT` dominates `READY` when multiple conditions apply. The free-text override note is **audit signal only** — it never demotes a `BLOCKED` to `READY`.
+`BLOCKED` dominates `NEEDS_INPUT` dominates `READY` when multiple conditions apply. The free-text override note is **audit signal only** — it never demotes a `BLOCKED` (i.e. it cannot manufacture a `PLAN.md`).
 
 ### Subagent report vocabularies
 

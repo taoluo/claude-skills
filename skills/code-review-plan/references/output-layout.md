@@ -109,10 +109,10 @@ Review readiness: <READY | NEEDS_INPUT | BLOCKED>
 Compact human-readable summary. Required fields:
 
 - `Review readiness: READY | NEEDS_INPUT | BLOCKED`
-- `Blocking issues: none` OR a bulleted list of plain-language reasons (e.g., `code diff missing`, `tests-passing evidence missing`).
-- `Warnings: none` OR a bulleted list (e.g., `.scope.md mtime predates PLAN.md; treat scope categories as possibly stale`, `human override rationale recorded: "external reviewer requested mid-debug look"`).
-- `Tests-passing evidence: debug-log Current status: PASSING | invocation note: <quoted note> | none`
-- `Code diff / changed files: present | missing`
+- `Blocking issues: none` OR a bulleted list of plain-language reasons. The only `BLOCKED` cause is `source plan missing` (or `source plan unreadable: <reason>`); every other concern lives in `Warnings:`.
+- `Warnings: none` OR a bulleted list (e.g., `code diff / changed files not supplied — shards mark Code areas as unknown`, `tests-passing evidence missing — TEST_EVIDENCE_REVIEW shards depend on smoke evidence the reviewer must supply at exec time`, `.scope.md mtime predates PLAN.md; treat scope categories as possibly stale`, `.debug.md missing — recurrence-risk shards reconstruct bug history from git log`, `human override rationale recorded: "external reviewer requested mid-debug look"`).
+- `Tests-passing evidence: debug-log Current status: PASSING | invocation note: <quoted note> | none` (no evidence is **not** a Blocking issue; it is a Warning).
+- `Code diff / changed files: present | missing` (missing is a Warning, not a Blocking issue).
 - `Author clarification: 0 | N questions in §1.1 (M blocking)`
 
 This dashboard is the **only** place where readiness state lives. There is no separate `Blocking reason:` enum, no `Override reason:` field, no `Soft warnings:` count — everything is plain-language bullets.
@@ -155,10 +155,10 @@ Grouped by shard ID; specialized prompts only (no verbatim copies of `references
 
 7 columns: Subagent / Shards / Required inputs / Output file / Independence notes / Estimated effort / Status.
 
-- When `Review readiness: BLOCKED`, every row carries `Status: BLOCKED — <one-line reason from §0 Blocking issues>`.
-- When readiness is `NEEDS_INPUT`, rows carry `Status: NEEDS_INPUT — <reason>`. The workplan is complete enough to inspect, but the human should resolve the listed input before launching the review fleet unless they explicitly accept the risk.
-- When readiness is `READY`, rows carry `Status: READY`.
-- **Special case (code diff missing)**: shard definitions in §4 may exist (the workplan scaffold is still useful as a preview), but every shard's `Code areas to inspect` field is set to `unknown — code diff not supplied`, and §6 rows are `BLOCKED — awaiting code diff`.
+- When `Review readiness: BLOCKED` (only cause: `PLAN.md` missing), every row carries `Status: BLOCKED — source plan missing` and shards are mostly empty scaffold.
+- When readiness is `NEEDS_INPUT`, rows carry `Status: NEEDS_INPUT — <reason>` (a `tier: blocking` author-clarification question is open). The workplan is complete enough to inspect, but the human should resolve the listed input before launching the review fleet unless they explicitly accept the risk.
+- When readiness is `READY`, rows carry `Status: READY`. Rows MAY include `(advisory)` annotations — e.g. `Status: READY (advisory: code diff not supplied; reviewer scopes shard manually from PLAN.md anchors)` — to surface optional-input gaps without changing readiness.
+- **Special case (code diff missing on a `READY` workplan)**: shard definitions in §4 still exist (the workplan is useful as-is), and every shard's `Code areas to inspect` field is set to `unknown — code diff not supplied; reviewer maps anchors to code at exec time`. §6 rows stay `Status: READY (advisory: code diff missing)`.
 
 ### §7 Subagent Report Template
 
